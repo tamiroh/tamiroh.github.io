@@ -302,7 +302,7 @@ margin =
 
 ink : String
 ink =
-    "#363636"
+    "#ababab"
 
 
 paper : String
@@ -365,7 +365,7 @@ line x1 y1 x2 y2 =
         , SvgAttr.x2 (String.fromFloat x2)
         , SvgAttr.y2 (String.fromFloat y2)
         , SvgAttr.stroke ink
-        , SvgAttr.strokeWidth "2"
+        , SvgAttr.strokeWidth "1.5"
         , SvgAttr.shapeRendering "crispEdges"
         ]
         []

@@ -8,6 +8,7 @@ import Set exposing (Set)
 import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
 import Svg.Events
+import Time
 
 
 
@@ -19,7 +20,7 @@ main =
     Browser.element
         { init = init
         , update = update
-        , subscriptions = \_ -> Sub.none
+        , subscriptions = subscriptions
         , view = view
         }
 
@@ -62,6 +63,12 @@ type Msg
     = Clicked Cell
     | MinesPlaced Cell (Set Cell)
     | PatternGenerated Pattern
+    | Tick
+
+
+subscriptions : Model -> Sub Msg
+subscriptions _ =
+    Time.every 1000 (\_ -> Tick)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -86,6 +93,9 @@ update msg model =
 
         PatternGenerated pattern ->
             ( { model | pattern = patternRows pattern }, Cmd.none )
+
+        Tick ->
+            ( model, Random.generate PatternGenerated patternGenerator )
 
 
 mineGenerator : Cell -> Random.Generator (Set Cell)

@@ -309,16 +309,16 @@ cellView model cell =
             Set.member cell model.revealed
 
         x =
-            position column + dx
+            position column + gap / 2 + dx
 
         y =
-            position row + dy
+            position row + gap / 2 + dy
     in
     Svg.rect
         [ SvgAttr.x (String.fromFloat x)
         , SvgAttr.y (String.fromFloat y)
-        , SvgAttr.width (String.fromFloat spacing)
-        , SvgAttr.height (String.fromFloat spacing)
+        , SvgAttr.width (String.fromFloat cellSize)
+        , SvgAttr.height (String.fromFloat cellSize)
         , SvgAttr.fill
             (if opened then
                 ink
@@ -354,12 +354,12 @@ labels model cell x y =
 label : Float -> Float -> Int -> Svg msg
 label x y count =
     Svg.text_
-        [ SvgAttr.x (String.fromFloat (x + spacing / 2))
-        , SvgAttr.y (String.fromFloat (y + spacing / 2))
+        [ SvgAttr.x (String.fromFloat (x + cellSize / 2))
+        , SvgAttr.y (String.fromFloat (y + cellSize / 2))
         , SvgAttr.textAnchor "middle"
         , SvgAttr.dominantBaseline "central"
         , SvgAttr.fontFamily "monospace"
-        , SvgAttr.fontSize (String.fromFloat (spacing / 2))
+        , SvgAttr.fontSize (String.fromFloat (cellSize / 2))
         , SvgAttr.fill paper
         ]
         [ Svg.text (String.fromInt count) ]
@@ -382,6 +382,16 @@ mineCount =
 spacing : Float
 spacing =
     48
+
+
+gap : Float
+gap =
+    4
+
+
+cellSize : Float
+cellSize =
+    spacing - gap
 
 
 margin : Float

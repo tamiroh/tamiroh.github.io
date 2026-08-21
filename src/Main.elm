@@ -1,6 +1,7 @@
 module Main exposing (main)
 
 import Browser
+import Browser.Events
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Random
@@ -40,17 +41,29 @@ type Status
     | Won
 
 
+type alias Shock =
+    { origin : Cell
+    , elapsed : Float
+    }
+
+
 type alias Model =
     { mines : Set Cell
     , revealed : Set Cell
     , status : Status
     , pattern : List String
+    , shock : Maybe Shock
     }
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { mines = Set.empty, revealed = Set.empty, status = Ready, pattern = [] }
+    ( { mines = Set.empty
+      , revealed = Set.empty
+      , status = Ready
+      , pattern = []
+      , shock = Nothing
+      }
     , Random.generate PatternGenerated patternGenerator
     )
 
@@ -64,11 +77,20 @@ type Msg
     | MinesPlaced Cell (Set Cell)
     | PatternGenerated Pattern
     | Tick
+    | Frame Float
 
 
 subscriptions : Model -> Sub Msg
-subscriptions _ =
-    Time.every 1000 (\_ -> Tick)
+subscriptions model =
+    Sub.batch
+        [ Time.every 1000 (\_ -> Tick)
+        , case model.shock of
+            Nothing ->
+                Sub.none
+
+            Just _ ->
+                Browser.Events.onAnimationFrameDelta Frame
+        ]
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -77,10 +99,10 @@ update msg model =
         Clicked cell ->
             case model.status of
                 Ready ->
-                    ( model, Random.generate (MinesPlaced cell) (mineGenerator cell) )
+                    ( struck cell model, Random.generate (MinesPlaced cell) (mineGenerator cell) )
 
                 Playing ->
-                    ( reveal cell model, Cmd.none )
+                    ( reveal cell (struck cell model), Cmd.none )
 
                 Lost ->
                     ( model, Cmd.none )
@@ -96,6 +118,32 @@ update msg model =
 
         Tick ->
             ( model, Random.generate PatternGenerated patternGenerator )
+
+        Frame delta ->
+            ( { model | shock = advance delta model.shock }, Cmd.none )
+
+
+struck : Cell -> Model -> Model
+struck cell model =
+    { model | shock = Just { origin = cell, elapsed = 0 } }
+
+
+advance : Float -> Maybe Shock -> Maybe Shock
+advance delta shock =
+    case shock of
+        Nothing ->
+            Nothing
+
+        Just current ->
+            let
+                elapsed =
+                    current.elapsed + delta
+            in
+            if elapsed > shockLifetime then
+                Nothing
+
+            else
+                Just { current | elapsed = elapsed }
 
 
 mineGenerator : Cell -> Random.Generator (Set Cell)
@@ -243,46 +291,71 @@ board model =
         [ SvgAttr.width (String.fromFloat boardSize)
         , SvgAttr.height (String.fromFloat boardSize)
         , SvgAttr.viewBox ("0 0 " ++ String.fromFloat boardSize ++ " " ++ String.fromFloat boardSize)
+        , SvgAttr.style "overflow: visible"
         ]
-        (backdrop :: openedCells model ++ gridLines ++ clickTargets model)
+        (List.concatMap (cellView model) cells)
 
 
-backdrop : Svg msg
-backdrop =
+cellView : Model -> Cell -> List (Svg Msg)
+cellView model cell =
+    let
+        ( column, row ) =
+            cell
+
+        ( dx, dy ) =
+            displacement model.shock cell
+
+        opened =
+            Set.member cell model.revealed
+
+        x =
+            position column + dx
+
+        y =
+            position row + dy
+    in
     Svg.rect
-        [ SvgAttr.width (String.fromFloat boardSize)
-        , SvgAttr.height (String.fromFloat boardSize)
-        , SvgAttr.fill paper
+        [ SvgAttr.x (String.fromFloat x)
+        , SvgAttr.y (String.fromFloat y)
+        , SvgAttr.width (String.fromFloat spacing)
+        , SvgAttr.height (String.fromFloat spacing)
+        , SvgAttr.fill
+            (if opened then
+                ink
+
+             else
+                paper
+            )
+        , SvgAttr.stroke ink
+        , SvgAttr.strokeWidth "2"
+        , SvgAttr.shapeRendering "crispEdges"
+        , SvgAttr.cursor "pointer"
+        , Svg.Events.onClick (Clicked cell)
         ]
         []
+        :: (if opened then
+                labels model cell x y
+
+            else
+                []
+           )
 
 
-openedCells : Model -> List (Svg msg)
-openedCells model =
-    List.concatMap (openedCell model) cells
+labels : Model -> Cell -> Float -> Float -> List (Svg msg)
+labels model cell x y =
+    case adjacentMines model.mines cell of
+        0 ->
+            []
+
+        count ->
+            [ label x y count ]
 
 
-openedCell : Model -> Cell -> List (Svg msg)
-openedCell model cell =
-    if Set.member cell model.revealed then
-        cellRect cell [ SvgAttr.fill ink ]
-            :: (case adjacentMines model.mines cell of
-                    0 ->
-                        []
-
-                    count ->
-                        [ label cell count ]
-               )
-
-    else
-        []
-
-
-label : Cell -> Int -> Svg msg
-label ( column, row ) count =
+label : Float -> Float -> Int -> Svg msg
+label x y count =
     Svg.text_
-        [ SvgAttr.x (String.fromFloat (position column + spacing / 2))
-        , SvgAttr.y (String.fromFloat (position row + spacing / 2))
+        [ SvgAttr.x (String.fromFloat (x + spacing / 2))
+        , SvgAttr.y (String.fromFloat (y + spacing / 2))
         , SvgAttr.textAnchor "middle"
         , SvgAttr.dominantBaseline "central"
         , SvgAttr.fontFamily "monospace"
@@ -290,25 +363,6 @@ label ( column, row ) count =
         , SvgAttr.fill paper
         ]
         [ Svg.text (String.fromInt count) ]
-
-
-clickTargets : Model -> List (Svg Msg)
-clickTargets model =
-    List.filterMap
-        (\cell ->
-            if Set.member cell model.revealed then
-                Nothing
-
-            else
-                Just
-                    (cellRect cell
-                        [ SvgAttr.fill "transparent"
-                        , SvgAttr.cursor "pointer"
-                        , Svg.Events.onClick (Clicked cell)
-                        ]
-                    )
-        )
-        cells
 
 
 
@@ -332,7 +386,7 @@ spacing =
 
 margin : Float
 margin =
-    1
+    8
 
 
 ink : String
@@ -369,41 +423,63 @@ position index =
     margin + spacing * toFloat index
 
 
-cellRect : Cell -> List (Svg.Attribute msg) -> Svg msg
-cellRect ( column, row ) attributes =
-    Svg.rect
-        (SvgAttr.x (String.fromFloat (position column))
-            :: SvgAttr.y (String.fromFloat (position row))
-            :: SvgAttr.width (String.fromFloat spacing)
-            :: SvgAttr.height (String.fromFloat spacing)
-            :: attributes
-        )
-        []
+shockAmplitude : Float
+shockAmplitude =
+    140
 
 
-gridLines : List (Svg msg)
-gridLines =
-    List.concatMap
-        (\index ->
-            [ line (position 0) (position index) (position cellCount) (position index)
-            , line (position index) (position 0) (position index) (position cellCount)
-            ]
-        )
-        (List.range 0 cellCount)
+shockDuration : Float
+shockDuration =
+    700
 
 
-line : Float -> Float -> Float -> Float -> Svg msg
-line x1 y1 x2 y2 =
-    Svg.line
-        [ SvgAttr.x1 (String.fromFloat x1)
-        , SvgAttr.y1 (String.fromFloat y1)
-        , SvgAttr.x2 (String.fromFloat x2)
-        , SvgAttr.y2 (String.fromFloat y2)
-        , SvgAttr.stroke ink
-        , SvgAttr.strokeWidth "1.5"
-        , SvgAttr.shapeRendering "crispEdges"
-        ]
-        []
+shockDelay : Float
+shockDelay =
+    65
+
+
+shockLifetime : Float
+shockLifetime =
+    shockDuration + shockDelay * maxDistance
+
+
+maxDistance : Float
+maxDistance =
+    sqrt 2 * toFloat (cellCount - 1)
+
+
+displacement : Maybe Shock -> Cell -> ( Float, Float )
+displacement shock ( column, row ) =
+    case shock of
+        Nothing ->
+            ( 0, 0 )
+
+        Just { origin, elapsed } ->
+            let
+                ( originColumn, originRow ) =
+                    origin
+
+                dx =
+                    toFloat (column - originColumn)
+
+                dy =
+                    toFloat (row - originRow)
+
+                distance =
+                    sqrt (dx * dx + dy * dy)
+
+                local =
+                    elapsed - distance * shockDelay
+            in
+            if distance == 0 || local <= 0 || local >= shockDuration then
+                ( 0, 0 )
+
+            else
+                let
+                    amplitude =
+                        shockAmplitude * sin (pi * local / shockDuration) * (distance / maxDistance) ^ 2
+                in
+                ( dx / distance * amplitude, dy / distance * amplitude )
 
 
 

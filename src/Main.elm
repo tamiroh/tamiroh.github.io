@@ -178,24 +178,46 @@ view model =
             , Attr.style "align-items" "center"
             , Attr.style "min-height" "100vh"
             ]
-            (boardLayer model)
+            [ boardLayer model ]
         ]
 
 
-boardLayer : Model -> List (Html Msg)
+boardLayer : Model -> Html Msg
 boardLayer model =
-    case model.status of
+    Html.div
+        [ Attr.style "transition" "opacity 1.2s ease-out"
+        , Attr.style "opacity"
+            (if finished model.status then
+                "0"
+
+             else
+                "1"
+            )
+        , Attr.style "pointer-events"
+            (if finished model.status then
+                "none"
+
+             else
+                "auto"
+            )
+        ]
+        [ board model ]
+
+
+finished : Status -> Bool
+finished status =
+    case status of
         Ready ->
-            [ board model ]
+            False
 
         Playing ->
-            [ board model ]
+            False
 
         Lost ->
-            []
+            True
 
         Won ->
-            []
+            True
 
 
 patternLayer : List String -> Html msg

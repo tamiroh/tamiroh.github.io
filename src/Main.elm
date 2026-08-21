@@ -103,11 +103,6 @@ cells =
     List.concatMap (\column -> List.map (Tuple.pair column) cellIndices) cellIndices
 
 
-starPoints : List ( Int, Int )
-starPoints =
-    [ ( 2, 2 ), ( 2, 6 ), ( 6, 2 ), ( 6, 6 ), ( 4, 4 ) ]
-
-
 ink : String
 ink =
     "#363636"
@@ -125,7 +120,7 @@ board model =
         , SvgAttr.height (String.fromFloat boardSize)
         , SvgAttr.viewBox ("0 0 " ++ String.fromFloat boardSize ++ " " ++ String.fromFloat boardSize)
         ]
-        (filledCells model ++ gridLines ++ stars ++ clickTargets)
+        (filledCells model ++ gridLines ++ clickTargets)
 
 
 filledCells : Model -> List (Svg msg)
@@ -169,21 +164,6 @@ gridLines =
         lineIndices
 
 
-stars : List (Svg msg)
-stars =
-    List.map
-        (\( column, row ) ->
-            Svg.circle
-                [ SvgAttr.cx (String.fromFloat (position column))
-                , SvgAttr.cy (String.fromFloat (position row))
-                , SvgAttr.r "4"
-                , SvgAttr.fill ink
-                ]
-                []
-        )
-        starPoints
-
-
 line : Float -> Float -> Float -> Float -> Svg msg
 line x1 y1 x2 y2 =
     Svg.line
@@ -192,7 +172,7 @@ line x1 y1 x2 y2 =
         , SvgAttr.x2 (String.fromFloat x2)
         , SvgAttr.y2 (String.fromFloat y2)
         , SvgAttr.stroke ink
-        , SvgAttr.strokeWidth "1"
+        , SvgAttr.strokeWidth "2"
         , SvgAttr.shapeRendering "crispEdges"
         ]
         []

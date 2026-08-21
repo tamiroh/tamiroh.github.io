@@ -178,8 +178,24 @@ view model =
             , Attr.style "align-items" "center"
             , Attr.style "min-height" "100vh"
             ]
-            [ board model ]
+            (boardLayer model)
         ]
+
+
+boardLayer : Model -> List (Html Msg)
+boardLayer model =
+    case model.status of
+        Ready ->
+            [ board model ]
+
+        Playing ->
+            [ board model ]
+
+        Lost ->
+            []
+
+        Won ->
+            []
 
 
 patternLayer : List String -> Html msg
@@ -206,7 +222,7 @@ board model =
         , SvgAttr.height (String.fromFloat boardSize)
         , SvgAttr.viewBox ("0 0 " ++ String.fromFloat boardSize ++ " " ++ String.fromFloat boardSize)
         ]
-        (backdrop :: cellShapes model ++ gridLines ++ clickTargets model)
+        (backdrop :: openedCells model ++ gridLines ++ clickTargets model)
 
 
 backdrop : Svg msg
@@ -219,14 +235,9 @@ backdrop =
         []
 
 
-cellShapes : Model -> List (Svg msg)
-cellShapes model =
-    case model.status of
-        Lost ->
-            List.map (\cell -> cellRect cell [ SvgAttr.fill ink ]) cells
-
-        _ ->
-            List.concatMap (openedCell model) cells
+openedCells : Model -> List (Svg msg)
+openedCells model =
+    List.concatMap (openedCell model) cells
 
 
 openedCell : Model -> Cell -> List (Svg msg)
@@ -261,29 +272,21 @@ label ( column, row ) count =
 
 clickTargets : Model -> List (Svg Msg)
 clickTargets model =
-    case model.status of
-        Lost ->
-            []
+    List.filterMap
+        (\cell ->
+            if Set.member cell model.revealed then
+                Nothing
 
-        Won ->
-            []
-
-        _ ->
-            List.filterMap
-                (\cell ->
-                    if Set.member cell model.revealed then
-                        Nothing
-
-                    else
-                        Just
-                            (cellRect cell
-                                [ SvgAttr.fill "transparent"
-                                , SvgAttr.cursor "pointer"
-                                , Svg.Events.onClick (Clicked cell)
-                                ]
-                            )
-                )
-                cells
+            else
+                Just
+                    (cellRect cell
+                        [ SvgAttr.fill "transparent"
+                        , SvgAttr.cursor "pointer"
+                        , Svg.Events.onClick (Clicked cell)
+                        ]
+                    )
+        )
+        cells
 
 
 

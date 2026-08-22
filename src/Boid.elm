@@ -15,81 +15,6 @@ type alias Boid =
     }
 
 
-radius : Float
-radius =
-    5
-
-
-vision : Float
-vision =
-    60
-
-
-personalSpace : Float
-personalSpace =
-    30
-
-
-slowest : Float
-slowest =
-    1.1
-
-
-fastest : Float
-fastest =
-    2.2
-
-
-separationWeight : Float
-separationWeight =
-    0.5
-
-
-alignmentWeight : Float
-alignmentWeight =
-    0.06
-
-
-cohesionWeight : Float
-cohesionWeight =
-    0.004
-
-
-avoidWeight : Float
-avoidWeight =
-    1.6
-
-
-fleeWeight : Float
-fleeWeight =
-    3
-
-
-fleeRange : Float
-fleeRange =
-    120
-
-
-boardClearance : Float
-boardClearance =
-    34
-
-
-areaPerBoid : Float
-areaPerBoid =
-    16000
-
-
-seedAttempts : Int
-seedAttempts =
-    8
-
-
-frameMillis : Float
-frameMillis =
-    1000 / 60
-
-
 type alias Extent =
     { width : Float
     , height : Float
@@ -104,24 +29,23 @@ type alias Rect =
     }
 
 
-type Side
-    = Left
-    | Right
-    | Top
-    | Bottom
+radius : Float
+radius =
+    5
 
 
-type alias Neighbor =
-    { boid : Boid
-    , dx : Float
-    , dy : Float
-    , apart : Float
-    }
+
+-- SEED
 
 
-roomy : Extent -> Rect -> Bool
-roomy screen rect =
-    rect.right - rect.left < screen.width || rect.bottom - rect.top < screen.height
+areaPerBoid : Float
+areaPerBoid =
+    16000
+
+
+seedAttempts : Int
+seedAttempts =
+    8
 
 
 count : Extent -> Rect -> Int
@@ -175,6 +99,20 @@ clearOf rect ( x, y ) =
     not (x > rect.left - reach && x < rect.right + reach && y > rect.top - reach && y < rect.bottom + reach)
 
 
+
+-- SIMULATE
+
+
+frameMillis : Float
+frameMillis =
+    1000 / 60
+
+
+roomy : Extent -> Rect -> Bool
+roomy screen rect =
+    rect.right - rect.left < screen.width || rect.bottom - rect.top < screen.height
+
+
 flock : Float -> Extent -> Rect -> Maybe ( Float, Float ) -> List Boid -> List Boid
 flock delta screen rect pointer boids =
     if roomy screen rect then
@@ -217,6 +155,69 @@ steer dt screen rect pointer boids boid =
     { x = x, y = y, vx = vx, vy = vy }
 
 
+slowest : Float
+slowest =
+    1.1
+
+
+fastest : Float
+fastest =
+    2.2
+
+
+clampSpeed : ( Float, Float ) -> ( Float, Float )
+clampSpeed ( vx, vy ) =
+    let
+        speed =
+            sqrt (vx * vx + vy * vy)
+    in
+    if speed > fastest then
+        ( vx / speed * fastest, vy / speed * fastest )
+
+    else if speed > 0 && speed < slowest then
+        ( vx / speed * slowest, vy / speed * slowest )
+
+    else
+        ( vx, vy )
+
+
+
+-- FLOCK
+
+
+vision : Float
+vision =
+    60
+
+
+personalSpace : Float
+personalSpace =
+    30
+
+
+separationWeight : Float
+separationWeight =
+    0.5
+
+
+alignmentWeight : Float
+alignmentWeight =
+    0.06
+
+
+cohesionWeight : Float
+cohesionWeight =
+    0.004
+
+
+type alias Neighbor =
+    { boid : Boid
+    , dx : Float
+    , dy : Float
+    , apart : Float
+    }
+
+
 neighborsOf : Extent -> Boid -> List Boid -> List Neighbor
 neighborsOf screen boid boids =
     List.filterMap
@@ -238,18 +239,6 @@ neighborsOf screen boid boids =
                 Nothing
         )
         boids
-
-
-wrapDelta : Float -> Float -> Float
-wrapDelta span value =
-    if value > span / 2 then
-        value - span
-
-    else if value < negate (span / 2) then
-        value + span
-
-    else
-        value
 
 
 separation : List Neighbor -> ( Float, Float )
@@ -304,26 +293,18 @@ average size ( x, y ) =
         ( x / toFloat size, y / toFloat size )
 
 
-normalize : ( Float, Float ) -> ( Float, Float )
-normalize ( x, y ) =
-    let
-        length =
-            sqrt (x * x + y * y)
-    in
-    if length == 0 then
-        ( 0, 0 )
 
-    else
-        ( x / length, y / length )
+-- AVOID
 
 
-grown : Rect -> Rect
-grown rect =
-    { left = rect.left - radius
-    , top = rect.top - radius
-    , right = rect.right + radius
-    , bottom = rect.bottom + radius
-    }
+avoidWeight : Float
+avoidWeight =
+    1.6
+
+
+boardClearance : Float
+boardClearance =
+    34
 
 
 avoid : Extent -> Rect -> Boid -> ( Float, Float )
@@ -372,6 +353,54 @@ avoid screen rect boid =
         ( ux * push, uy * push )
 
 
+grown : Rect -> Rect
+grown rect =
+    { left = rect.left - radius
+    , top = rect.top - radius
+    , right = rect.right + radius
+    , bottom = rect.bottom + radius
+    }
+
+
+type Side
+    = Left
+    | Right
+    | Top
+    | Bottom
+
+
+nearestExit : Extent -> Rect -> Float -> Float -> Maybe Side
+nearestExit screen rect x y =
+    let
+        sideways =
+            if rect.right - rect.left < screen.width then
+                [ ( x - rect.left, Left ), ( rect.right - x, Right ) ]
+
+            else
+                []
+
+        upright =
+            if rect.bottom - rect.top < screen.height then
+                [ ( y - rect.top, Top ), ( rect.bottom - y, Bottom ) ]
+
+            else
+                []
+    in
+    List.sortBy Tuple.first (sideways ++ upright)
+        |> List.head
+        |> Maybe.map Tuple.second
+
+
+fleeWeight : Float
+fleeWeight =
+    3
+
+
+fleeRange : Float
+fleeRange =
+    120
+
+
 flee : Extent -> Maybe ( Float, Float ) -> Boid -> ( Float, Float )
 flee screen pointer boid =
     case pointer of
@@ -403,42 +432,21 @@ flee screen pointer boid =
                 ( ux * push, uy * push )
 
 
-nearestExit : Extent -> Rect -> Float -> Float -> Maybe Side
-nearestExit screen rect x y =
+normalize : ( Float, Float ) -> ( Float, Float )
+normalize ( x, y ) =
     let
-        sideways =
-            if rect.right - rect.left < screen.width then
-                [ ( x - rect.left, Left ), ( rect.right - x, Right ) ]
-
-            else
-                []
-
-        upright =
-            if rect.bottom - rect.top < screen.height then
-                [ ( y - rect.top, Top ), ( rect.bottom - y, Bottom ) ]
-
-            else
-                []
+        length =
+            sqrt (x * x + y * y)
     in
-    List.sortBy Tuple.first (sideways ++ upright)
-        |> List.head
-        |> Maybe.map Tuple.second
-
-
-clampSpeed : ( Float, Float ) -> ( Float, Float )
-clampSpeed ( vx, vy ) =
-    let
-        speed =
-            sqrt (vx * vx + vy * vy)
-    in
-    if speed > fastest then
-        ( vx / speed * fastest, vy / speed * fastest )
-
-    else if speed > 0 && speed < slowest then
-        ( vx / speed * slowest, vy / speed * slowest )
+    if length == 0 then
+        ( 0, 0 )
 
     else
-        ( vx, vy )
+        ( x / length, y / length )
+
+
+
+-- TORUS
 
 
 confine : Extent -> Rect -> ( Float, Float ) -> ( Float, Float )
@@ -448,15 +456,6 @@ confine screen rect point =
             pushOut screen rect point
     in
     ( wrap screen.width x, wrap screen.height y )
-
-
-wrap : Float -> Float -> Float
-wrap span value =
-    if span <= 0 then
-        value
-
-    else
-        value - span * toFloat (floor (value / span))
 
 
 pushOut : Extent -> Rect -> ( Float, Float ) -> ( Float, Float )
@@ -484,6 +483,27 @@ pushOut screen outer ( x, y ) =
 
     else
         ( x, y )
+
+
+wrap : Float -> Float -> Float
+wrap span value =
+    if span <= 0 then
+        value
+
+    else
+        value - span * toFloat (floor (value / span))
+
+
+wrapDelta : Float -> Float -> Float
+wrapDelta span value =
+    if value > span / 2 then
+        value - span
+
+    else if value < negate (span / 2) then
+        value + span
+
+    else
+        value
 
 
 wrapCopies : Extent -> Boid -> List ( Float, Float )

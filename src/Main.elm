@@ -270,6 +270,7 @@ pace model =
                     )
                     + walkerSpeed
                     * panic
+                    * max 0 lean
                 )
 
 

@@ -1,4 +1,4 @@
-module Geometry exposing (Position, Rect, Screen, Vector)
+module Geometry exposing (Position, Rect, Screen, Vector, wrap)
 
 -- GEOMETRY
 
@@ -23,3 +23,12 @@ type alias Rect =
     , right : Float
     , bottom : Float
     }
+
+
+wrap : Float -> Float -> Float
+wrap span value =
+    if span <= 0 then
+        value
+
+    else
+        value - span * toFloat (floor (value / span))

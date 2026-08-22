@@ -4,7 +4,7 @@ import Boid exposing (Boid)
 import Browser
 import Browser.Dom
 import Browser.Events
-import Geometry exposing (Position, Screen)
+import Geometry exposing (Position, Screen, wrap)
 import Grid exposing (Cell)
 import Html exposing (Html)
 import Html.Attributes as Attr
@@ -22,6 +22,7 @@ import Svg.Attributes as SvgAttr
 import Svg.Events
 import Task
 import Time
+import Walker
 
 
 
@@ -251,6 +252,7 @@ view model =
         , backgroundLayer model.lit
         , patternLayer model.lit model.pattern
         , boidLayer model.lit model.screen model.boids
+        , walkerLayer model.lit model.screen model.time
         , Html.div
             [ Attr.style "position" "fixed"
             , Attr.style "inset" "0"
@@ -421,6 +423,43 @@ tooth lit midX midY =
         , SvgAttr.height (String.fromFloat skullToothHeight)
         , SvgAttr.fill (ink lit)
         ]
+        []
+
+
+walkerLayer : Bool -> Screen -> Float -> Html msg
+walkerLayer lit screen time =
+    let
+        travel =
+            time * walkerSpeed / 1000
+
+        here =
+            wrap screen.width (screen.width - travel)
+
+        swing =
+            sin (travel / walkerStep * pi) * walkerSwing
+    in
+    Svg.svg
+        [ SvgAttr.width (String.fromFloat screen.width)
+        , SvgAttr.height (String.fromFloat screen.height)
+        , Attr.style "position" "fixed"
+        , Attr.style "inset" "0"
+        , Attr.style "pointer-events" "none"
+        ]
+        (List.map
+            (\x -> Walker.view (ink lit) (paper lit) lineWidth { x = x, ground = screen.height, swing = swing })
+            (here :: seam screen.width here)
+        )
+
+
+seam : Float -> Float -> List Float
+seam span here =
+    if here < Walker.width then
+        [ here + span ]
+
+    else if here > span - Walker.width then
+        [ here - span ]
+
+    else
         []
 
 
@@ -791,6 +830,25 @@ skullToothTop =
 skullToothGap : Float
 skullToothGap =
     cellSize * 0.055
+
+
+
+-- WALKER
+
+
+walkerSpeed : Float
+walkerSpeed =
+    26
+
+
+walkerStep : Float
+walkerStep =
+    26
+
+
+walkerSwing : Float
+walkerSwing =
+    10
 
 
 

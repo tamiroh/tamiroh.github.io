@@ -2,7 +2,6 @@ module Boid exposing (Boid, flock, generator, wrapCopies)
 
 import Field exposing (Field)
 import Geometry exposing (Position, Screen, Vector, wrap, wrapDelta)
-import Obstacle exposing (Obstacle)
 import Random
 
 
@@ -39,11 +38,9 @@ seedAttempts =
 
 count : Field -> Int
 count field =
-    let
-        blocked =
-            List.sum (List.map (Obstacle.area field.screen) field.objects)
-    in
-    clamp 6 24 (round ((field.screen.width * field.screen.height - blocked) / areaPerBoid))
+    clamp 6
+        24
+        (round ((field.screen.width * field.screen.height - Field.blocked field) / areaPerBoid))
 
 
 generator : Field -> Random.Generator (List Boid)
@@ -87,16 +84,9 @@ frameMillis =
     1000 / 60
 
 
-roomy : Field -> Bool
-roomy field =
-    List.all
-        (\object -> Obstacle.width object < field.screen.width || Obstacle.height object < field.screen.height)
-        field.objects
-
-
 flock : Float -> Field -> Maybe Position -> List Boid -> List Boid
 flock delta field pointer boids =
-    if roomy field then
+    if Field.roomy field then
         List.map (steer (min 2 (delta / frameMillis)) field pointer boids) boids
 
     else
@@ -119,7 +109,7 @@ steer dt field pointer boids boid =
             cohesion near
 
         ( bx, by ) =
-            avoid field boid
+            Field.repel (clearance + radius) field ( boid.x, boid.y )
 
         ( fx, fy ) =
             flee field.screen pointer boid
@@ -288,60 +278,6 @@ clearance =
     34
 
 
-avoid : Field -> Boid -> Vector
-avoid field boid =
-    List.foldl
-        (\object ( ax, ay ) ->
-            let
-                ( px, py ) =
-                    repel field.screen object boid
-            in
-            ( ax + px, ay + py )
-        )
-        ( 0, 0 )
-        field.objects
-
-
-repel : Screen -> Obstacle -> Boid -> Vector
-repel screen object boid =
-    let
-        here =
-            ( boid.x, boid.y )
-
-        ( nx, ny ) =
-            Obstacle.nearest object here
-
-        dx =
-            boid.x - nx
-
-        dy =
-            boid.y - ny
-
-        apart =
-            sqrt (dx * dx + dy * dy)
-
-        reach =
-            clearance + radius
-    in
-    if apart >= reach then
-        ( 0, 0 )
-
-    else if apart == 0 then
-        Obstacle.escape screen object here
-            |> Maybe.map Obstacle.direction
-            |> Maybe.withDefault ( 0, 0 )
-
-    else
-        let
-            ( ux, uy ) =
-                normalize ( dx, dy )
-
-            push =
-                1 - apart / reach
-        in
-        ( ux * push, uy * push )
-
-
 fleeWeight : Float
 fleeWeight =
     3
@@ -404,24 +340,9 @@ confine : Field -> Position -> Position
 confine field point =
     let
         ( x, y ) =
-            List.foldl (pushOut field.screen) point field.objects
+            Field.expel radius field point
     in
     ( wrap field.screen.width x, wrap field.screen.height y )
-
-
-pushOut : Screen -> Obstacle -> Position -> Position
-pushOut screen object point =
-    let
-        solid =
-            Obstacle.grow radius object
-    in
-    if Obstacle.contains solid point then
-        Obstacle.escape screen solid point
-            |> Maybe.map (\side -> Obstacle.edge solid side point)
-            |> Maybe.withDefault point
-
-    else
-        point
 
 
 wrapCopies : Screen -> Boid -> List Position

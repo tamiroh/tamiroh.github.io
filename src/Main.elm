@@ -16,7 +16,6 @@ import Html.Attributes as Attr
 import Json.Decode
 import Minesweeper
 import Motion exposing (Pull, Shock)
-import Obstacle
 import Othello
 import Pattern exposing (Pattern)
 import Process
@@ -697,16 +696,13 @@ position index =
 
 field : Screen -> Field
 field screen =
-    { screen = screen
-    , objects =
-        [ Obstacle.box
-            { left = screen.width / 2 - boardSize / 2
-            , top = screen.height / 2 - boardSize / 2
-            , right = screen.width / 2 + boardSize / 2
-            , bottom = screen.height / 2 + boardSize / 2
-            }
+    Field.around screen
+        [ { left = screen.width / 2 - boardSize / 2
+          , top = screen.height / 2 - boardSize / 2
+          , right = screen.width / 2 + boardSize / 2
+          , bottom = screen.height / 2 + boardSize / 2
+          }
         ]
-    }
 
 
 

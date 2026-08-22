@@ -17,6 +17,7 @@ import Othello
 import Pattern exposing (Pattern)
 import Process
 import Random
+import Ray
 import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
 import Svg.Events
@@ -395,20 +396,13 @@ boidLayer lit screen boids =
 
 boidView : Bool -> Screen -> Boid -> List (Svg msg)
 boidView lit screen boid =
-    List.map (dot lit) (Boid.wrapCopies screen boid)
-
-
-dot : Bool -> Position -> Svg msg
-dot lit ( x, y ) =
-    Svg.circle
-        [ SvgAttr.cx (String.fromFloat x)
-        , SvgAttr.cy (String.fromFloat y)
-        , SvgAttr.r (String.fromFloat Boid.radius)
-        , SvgAttr.fill (paper lit)
-        , SvgAttr.stroke (ink lit)
-        , SvgAttr.strokeWidth (String.fromFloat lineWidth)
-        ]
-        []
+    let
+        heading =
+            atan2 boid.vy boid.vx * 180 / pi
+    in
+    List.map
+        (\( x, y ) -> Ray.view (ink lit) (paper lit) lineWidth { x = x, y = y, heading = heading })
+        (Boid.wrapCopies screen boid)
 
 
 skull : Bool -> Float -> Float -> List (Svg msg)

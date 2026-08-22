@@ -24,8 +24,11 @@ jobs:
         with:
           node-version: 24
 
+      - name: Check formatting
+        run: make validate
+
       - name: Build
-        run: npx --yes elm@0.19.2-0 make src/Main.elm --optimize --output=main.js
+        run: make build
 
       - name: Assemble site
         run: |

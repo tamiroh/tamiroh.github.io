@@ -178,7 +178,16 @@ update msg model =
                     ( model, Cmd.none )
 
         FramePassed delta ->
-            ( advance delta model, Cmd.none )
+            ( { model
+                | time = model.time + delta
+                , shock = Motion.advance (Motion.shockLifetime Grid.count) delta model.shock
+                , pull = Motion.advance Motion.pullDuration delta model.pull
+                , boids = Boid.flock delta (field model.screen) model.pointer model.boids
+                , walked = model.walked + pace model * delta / 1000
+                , eyes = List.filterMap (Eye.alive model.time model.pointer) model.eyes
+              }
+            , Cmd.none
+            )
 
         SecondPassed ->
             ( model
@@ -287,18 +296,6 @@ over play =
 
         Discs othello ->
             Othello.isOver othello
-
-
-advance : Float -> Model -> Model
-advance delta model =
-    { model
-        | time = model.time + delta
-        , shock = Motion.advance (Motion.shockLifetime Grid.count) delta model.shock
-        , pull = Motion.advance Motion.pullDuration delta model.pull
-        , boids = Boid.flock delta (field model.screen) model.pointer model.boids
-        , walked = model.walked + pace model * delta / 1000
-        , eyes = List.filterMap (Eye.alive model.time model.pointer) model.eyes
-    }
 
 
 struck : Cell -> Model -> Model

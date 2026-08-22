@@ -30,29 +30,13 @@ opening =
     18
 
 
-shut : Float
-shut =
-    0.04
 
-
-snap : Float
-snap =
-    5
+-- SPAWN
 
 
 chance : Float
 chance =
     0.4
-
-
-shy : Float
-shy =
-    90
-
-
-blink : Float
-blink =
-    110
 
 
 tries : Int
@@ -96,6 +80,20 @@ spot field attempts =
             )
 
 
+
+-- LIFE
+
+
+shy : Float
+shy =
+    90
+
+
+blink : Float
+blink =
+    110
+
+
 alive : Float -> Maybe Position -> Eye -> Maybe Eye
 alive now pointer eye =
     if now - eye.born >= eye.life then
@@ -128,12 +126,6 @@ noticed pointer eye =
             (px - eye.x) ^ 2 + (py - eye.y) ^ 2 < shy ^ 2
 
 
-aperture : Float -> Eye -> Float
-aperture now eye =
-    min 1 (snap * sin (pi * clamp 0 1 ((now - eye.born) / eye.life)))
-        * closing now eye
-
-
 closing : Float -> Eye -> Float
 closing now eye =
     case eye.shut of
@@ -142,6 +134,26 @@ closing now eye =
 
         Just at ->
             max 0 (1 - (now - at) / blink)
+
+
+
+-- VIEW
+
+
+shut : Float
+shut =
+    0.04
+
+
+snap : Float
+snap =
+    5
+
+
+aperture : Float -> Eye -> Float
+aperture now eye =
+    min 1 (snap * sin (pi * clamp 0 1 ((now - eye.born) / eye.life)))
+        * closing now eye
 
 
 view : String -> String -> Float -> Float -> Eye -> Maybe (Svg msg)

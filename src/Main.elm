@@ -83,8 +83,10 @@ init _ =
     )
 
 
-
--- UPDATE
+type Play
+    = Fresh
+    | Mines Minesweeper.Game
+    | Discs Othello.Board
 
 
 type Content
@@ -93,10 +95,21 @@ type Content
     | Stone Othello.Disc
 
 
-type Play
-    = Fresh
-    | Mines Minesweeper.Game
-    | Discs Othello.Board
+over : Play -> Bool
+over play =
+    case play of
+        Fresh ->
+            False
+
+        Mines game ->
+            Minesweeper.finished game
+
+        Discs othello ->
+            Othello.isOver othello
+
+
+
+-- UPDATE
 
 
 type Msg
@@ -235,72 +248,12 @@ update msg model =
                     ( { model | eyes = eye :: model.eyes }, Cmd.none )
 
 
-walkerPace : Model -> Float
-walkerPace model =
-    case model.pointer of
-        Nothing ->
-            walkerSpeed
-
-        Just ( px, py ) ->
-            let
-                aside =
-                    wrapDelta model.screen.width (strolled model.screen model.walked - px)
-
-                above =
-                    ground model.screen - Walker.height / 2 - py
-
-                span =
-                    sqrt (aside * aside + above * above)
-
-                near =
-                    max 0 (1 - span / walkerSense)
-
-                lean =
-                    negate (clamp -1 1 (aside / walkerFocus))
-
-                panic =
-                    walkerPanic
-                        * max 0 ((walkerPanicRange / max walkerPanicFloor span) ^ 2 - 1)
-            in
-            min (walkerSpeed * walkerLimit)
-                (max 0
-                    (walkerSpeed
-                        * (1 - near * walkerBrake * max 0 (negate lean) + near * walkerRush * max 0 lean)
-                    )
-                    + walkerSpeed
-                    * panic
-                    * max 0 lean
-                )
-
-
 startGenerator : Cell -> Random.Generator Play
 startGenerator cell =
     Random.uniform
         (Random.map (\game -> Mines (Minesweeper.reveal cell game)) (Minesweeper.start cell))
         [ Random.constant (Discs Othello.new) ]
         |> Random.andThen identity
-
-
-think : Othello.Board -> Cmd Msg
-think othello =
-    if Othello.thinking othello then
-        Task.perform (\_ -> OthelloResponded) (Process.sleep thinkingDelay)
-
-    else
-        Cmd.none
-
-
-over : Play -> Bool
-over play =
-    case play of
-        Fresh ->
-            False
-
-        Mines game ->
-            Minesweeper.finished game
-
-        Discs othello ->
-            Othello.isOver othello
 
 
 startShock : Cell -> Model -> Model
@@ -466,23 +419,6 @@ groundLayer theme screen walked rate =
                 )
                 (here :: seam screen.width here)
         )
-
-
-strolled : Screen -> Float -> Float
-strolled screen walked =
-    wrap screen.width (screen.width - walked)
-
-
-seam : Float -> Float -> List Float
-seam span here =
-    if here < Walker.width then
-        [ here + span ]
-
-    else if here > span - Walker.width then
-        [ here - span ]
-
-    else
-        []
 
 
 patternLayer : Theme -> String -> Html msg
@@ -707,8 +643,25 @@ field screen =
         ]
 
 
+about : Float -> Float -> Float -> String
+about midX midY size =
+    String.concat
+        [ "translate("
+        , String.fromFloat midX
+        , ","
+        , String.fromFloat midY
+        , ") scale("
+        , String.fromFloat size
+        , ") translate("
+        , String.fromFloat (negate midX)
+        , ","
+        , String.fromFloat (negate midY)
+        , ")"
+        ]
 
--- PIPS
+
+
+-- MARKS
 
 
 pipRadius : Float
@@ -762,18 +715,27 @@ pipCells count =
             []
 
 
-
--- DISCS
-
-
 discRadius : Float
 discRadius =
     cellSize * 0.34
 
 
+
+-- OTHELLO
+
+
 thinkingDelay : Float
 thinkingDelay =
     420
+
+
+think : Othello.Board -> Cmd Msg
+think othello =
+    if Othello.thinking othello then
+        Task.perform (\_ -> OthelloResponded) (Process.sleep thinkingDelay)
+
+    else
+        Cmd.none
 
 
 
@@ -848,23 +810,6 @@ shove pointer cell =
                         hoverPush * sin (pi * apart / hoverReach)
                 in
                 ( dx / apart * push, dy / apart * push )
-
-
-about : Float -> Float -> Float -> String
-about midX midY size =
-    String.concat
-        [ "translate("
-        , String.fromFloat midX
-        , ","
-        , String.fromFloat midY
-        , ") scale("
-        , String.fromFloat size
-        , ") translate("
-        , String.fromFloat (negate midX)
-        , ","
-        , String.fromFloat (negate midY)
-        , ")"
-        ]
 
 
 
@@ -953,6 +898,61 @@ walkerFocus =
 walkerBrake : Float
 walkerBrake =
     1.8
+
+
+walkerPace : Model -> Float
+walkerPace model =
+    case model.pointer of
+        Nothing ->
+            walkerSpeed
+
+        Just ( px, py ) ->
+            let
+                aside =
+                    wrapDelta model.screen.width (strolled model.screen model.walked - px)
+
+                above =
+                    ground model.screen - Walker.height / 2 - py
+
+                span =
+                    sqrt (aside * aside + above * above)
+
+                near =
+                    max 0 (1 - span / walkerSense)
+
+                lean =
+                    negate (clamp -1 1 (aside / walkerFocus))
+
+                panic =
+                    walkerPanic
+                        * max 0 ((walkerPanicRange / max walkerPanicFloor span) ^ 2 - 1)
+            in
+            min (walkerSpeed * walkerLimit)
+                (max 0
+                    (walkerSpeed
+                        * (1 - near * walkerBrake * max 0 (negate lean) + near * walkerRush * max 0 lean)
+                    )
+                    + walkerSpeed
+                    * panic
+                    * max 0 lean
+                )
+
+
+strolled : Screen -> Float -> Float
+strolled screen walked =
+    wrap screen.width (screen.width - walked)
+
+
+seam : Float -> Float -> List Float
+seam span here =
+    if here < Walker.width then
+        [ here + span ]
+
+    else if here > span - Walker.width then
+        [ here - span ]
+
+    else
+        []
 
 
 

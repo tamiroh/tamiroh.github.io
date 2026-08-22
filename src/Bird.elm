@@ -6,7 +6,7 @@ import Svg.Attributes as SvgAttr
 
 
 
--- RAY
+-- BIRD
 
 
 type alias Pose =

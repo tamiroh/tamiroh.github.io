@@ -63,6 +63,10 @@ tooth ink size midX midY =
         []
 
 
+
+-- SHAPE
+
+
 radius : Float -> Float
 radius size =
     size * 0.26

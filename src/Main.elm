@@ -143,71 +143,6 @@ advance delta shock =
                 Just { current | elapsed = elapsed }
 
 
-mineGenerator : Cell -> Random.Generator (Set Cell)
-mineGenerator safe =
-    let
-        candidates =
-            List.filter ((/=) safe) cells
-    in
-    Random.list (List.length candidates) (Random.float 0 1)
-        |> Random.map
-            (\keys ->
-                List.map2 Tuple.pair keys candidates
-                    |> List.sortBy Tuple.first
-                    |> List.take mineCount
-                    |> List.map Tuple.second
-                    |> Set.fromList
-            )
-
-
-reveal : Cell -> Model -> Model
-reveal cell model =
-    if Set.member cell model.mines then
-        { model | status = Lost }
-
-    else
-        let
-            revealed =
-                spread model.mines cell model.revealed
-        in
-        { model
-            | revealed = revealed
-            , status =
-                if Set.size revealed + mineCount == List.length cells then
-                    Won
-
-                else
-                    Playing
-        }
-
-
-spread : Set Cell -> Cell -> Set Cell -> Set Cell
-spread mines cell revealed =
-    if Set.member cell revealed then
-        revealed
-
-    else if adjacentMines mines cell == 0 then
-        List.foldl (spread mines) (Set.insert cell revealed) (neighbors cell)
-
-    else
-        Set.insert cell revealed
-
-
-adjacentMines : Set Cell -> Cell -> Int
-adjacentMines mines cell =
-    List.length (List.filter (\neighbor -> Set.member neighbor mines) (neighbors cell))
-
-
-neighbors : Cell -> List Cell
-neighbors ( column, row ) =
-    List.concatMap
-        (\columnOffset ->
-            List.map (\rowOffset -> ( column + columnOffset, row + rowOffset )) [ -1, 0, 1 ]
-        )
-        [ -1, 0, 1 ]
-        |> List.filter (\cell -> cell /= ( column, row ) && List.member cell cells)
-
-
 
 -- VIEW
 
@@ -363,17 +298,86 @@ label x y count =
 
 
 
--- BOARD
-
-
-cellCount : Int
-cellCount =
-    8
+-- RULES
 
 
 mineCount : Int
 mineCount =
     10
+
+
+mineGenerator : Cell -> Random.Generator (Set Cell)
+mineGenerator safe =
+    let
+        candidates =
+            List.filter ((/=) safe) cells
+    in
+    Random.list (List.length candidates) (Random.float 0 1)
+        |> Random.map
+            (\keys ->
+                List.map2 Tuple.pair keys candidates
+                    |> List.sortBy Tuple.first
+                    |> List.take mineCount
+                    |> List.map Tuple.second
+                    |> Set.fromList
+            )
+
+
+reveal : Cell -> Model -> Model
+reveal cell model =
+    if Set.member cell model.mines then
+        { model | status = Lost }
+
+    else
+        let
+            revealed =
+                spread model.mines cell model.revealed
+        in
+        { model
+            | revealed = revealed
+            , status =
+                if Set.size revealed + mineCount == List.length cells then
+                    Won
+
+                else
+                    Playing
+        }
+
+
+spread : Set Cell -> Cell -> Set Cell -> Set Cell
+spread mines cell revealed =
+    if Set.member cell revealed then
+        revealed
+
+    else if adjacentMines mines cell == 0 then
+        List.foldl (spread mines) (Set.insert cell revealed) (neighbors cell)
+
+    else
+        Set.insert cell revealed
+
+
+adjacentMines : Set Cell -> Cell -> Int
+adjacentMines mines cell =
+    List.length (List.filter (\neighbor -> Set.member neighbor mines) (neighbors cell))
+
+
+neighbors : Cell -> List Cell
+neighbors ( column, row ) =
+    List.concatMap
+        (\columnOffset ->
+            List.map (\rowOffset -> ( column + columnOffset, row + rowOffset )) [ -1, 0, 1 ]
+        )
+        [ -1, 0, 1 ]
+        |> List.filter (\cell -> cell /= ( column, row ) && List.member cell cells)
+
+
+
+-- LAYOUT
+
+
+cellCount : Int
+cellCount =
+    8
 
 
 spacing : Float
@@ -396,21 +400,6 @@ margin =
     8
 
 
-ink : String
-ink =
-    "#ababab"
-
-
-paper : String
-paper =
-    "#ffffff"
-
-
-patternInk : String
-patternInk =
-    "#eeeeee"
-
-
 boardSize : Float
 boardSize =
     spacing * toFloat cellCount + margin * 2
@@ -428,6 +417,41 @@ cells =
 position : Int -> Float
 position index =
     margin + spacing * toFloat index
+
+
+
+-- COLOR
+
+
+ink : String
+ink =
+    "#ababab"
+
+
+paper : String
+paper =
+    "#ffffff"
+
+
+patternInk : String
+patternInk =
+    "#eeeeee"
+
+
+
+-- MOTION
+
+
+offset : Model -> Cell -> ( Float, Float )
+offset model cell =
+    let
+        ( shockX, shockY ) =
+            displacement model.shock cell
+
+        ( driftX, driftY ) =
+            drift model.time cell
+    in
+    ( shockX + driftX, shockY + driftY )
 
 
 shockAmplitude : Float
@@ -489,25 +513,9 @@ displacement shock ( column, row ) =
                 ( dx / distance * amplitude, dy / distance * amplitude )
 
 
-
--- DRIFT
-
-
 driftAmplitude : Float
 driftAmplitude =
     1.2
-
-
-offset : Model -> Cell -> ( Float, Float )
-offset model cell =
-    let
-        ( shockX, shockY ) =
-            displacement model.shock cell
-
-        ( driftX, driftY ) =
-            drift model.time cell
-    in
-    ( shockX + driftX, shockY + driftY )
 
 
 drift : Float -> Cell -> ( Float, Float )

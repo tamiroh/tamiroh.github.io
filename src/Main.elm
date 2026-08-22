@@ -175,6 +175,7 @@ view model =
             , Attr.style "min-height" "100vh"
             ]
             [ boardLayer model ]
+        , cordLayer
         ]
 
 
@@ -198,6 +199,46 @@ boardLayer model =
             )
         ]
         [ board model ]
+
+
+cordLayer : Html msg
+cordLayer =
+    Html.div
+        [ Attr.style "position" "fixed"
+        , Attr.style "top" "0"
+        , Attr.style "right" (String.fromFloat cordInset ++ "px")
+        , Attr.style "pointer-events" "none"
+        ]
+        [ cord ]
+
+
+cord : Svg msg
+cord =
+    Svg.svg
+        [ SvgAttr.width (String.fromFloat cordWidth)
+        , SvgAttr.height (String.fromFloat (cordLength + cordGripHeight + lineWidth))
+        ]
+        [ Svg.line
+            [ SvgAttr.x1 (String.fromFloat (cordWidth / 2))
+            , SvgAttr.y1 "0"
+            , SvgAttr.x2 (String.fromFloat (cordWidth / 2))
+            , SvgAttr.y2 (String.fromFloat cordLength)
+            , SvgAttr.stroke ink
+            , SvgAttr.strokeWidth (String.fromFloat lineWidth)
+            ]
+            []
+        , Svg.rect
+            [ SvgAttr.x (String.fromFloat ((cordWidth - cordGripWidth) / 2))
+            , SvgAttr.y (String.fromFloat cordLength)
+            , SvgAttr.width (String.fromFloat cordGripWidth)
+            , SvgAttr.height (String.fromFloat cordGripHeight)
+            , SvgAttr.rx (String.fromFloat (cordGripWidth / 2))
+            , SvgAttr.fill paper
+            , SvgAttr.stroke ink
+            , SvgAttr.strokeWidth (String.fromFloat lineWidth)
+            ]
+            []
+        ]
 
 
 patternLayer : List String -> Html msg
@@ -259,7 +300,7 @@ cellView model cell =
                 paper
             )
         , SvgAttr.stroke ink
-        , SvgAttr.strokeWidth "2"
+        , SvgAttr.strokeWidth (String.fromFloat lineWidth)
         , SvgAttr.shapeRendering "crispEdges"
         , SvgAttr.cursor "pointer"
         , Svg.Events.onClick (Clicked cell)
@@ -409,6 +450,36 @@ cells =
 position : Int -> Float
 position index =
     margin + spacing * toFloat index
+
+
+lineWidth : Float
+lineWidth =
+    2
+
+
+cordInset : Float
+cordInset =
+    64
+
+
+cordLength : Float
+cordLength =
+    96
+
+
+cordWidth : Float
+cordWidth =
+    16
+
+
+cordGripWidth : Float
+cordGripWidth =
+    9
+
+
+cordGripHeight : Float
+cordGripHeight =
+    16
 
 
 pipRadius : Float

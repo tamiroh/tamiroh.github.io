@@ -52,7 +52,7 @@ type alias Model =
     , pattern : String
     , shock : Maybe Shock
     , time : Float
-    , lit : Bool
+    , theme : Theme
     , pull : Maybe Pull
     , screen : Screen
     , boids : List Boid
@@ -68,7 +68,7 @@ init _ =
       , pattern = ""
       , shock = Nothing
       , time = 0
-      , lit = True
+      , theme = Light
       , pull = Nothing
       , screen = { width = 0, height = 0 }
       , boids = []
@@ -197,7 +197,7 @@ update msg model =
             ( advance delta model, Cmd.none )
 
         CordPulled ->
-            ( { model | lit = not model.lit, pull = Just { elapsed = 0 } }, Cmd.none )
+            ( { model | theme = toggle model.theme, pull = Just { elapsed = 0 } }, Cmd.none )
 
         GotViewport viewport ->
             let
@@ -313,12 +313,12 @@ struck cell model =
 view : Model -> Html Msg
 view model =
     Html.div []
-        [ pageStyle model.lit
-        , backgroundLayer model.lit
-        , patternLayer model.lit model.pattern
-        , eyeLayer model.lit model.screen model.time model.eyes
-        , boidLayer model.lit model.screen model.boids
-        , groundLayer model.lit model.screen model.walked (pace model / walkerSpeed)
+        [ pageStyle model.theme
+        , backgroundLayer model.theme
+        , patternLayer model.theme model.pattern
+        , eyeLayer model.theme model.screen model.time model.eyes
+        , boidLayer model.theme model.screen model.boids
+        , groundLayer model.theme model.screen model.walked (pace model / walkerSpeed)
         , Html.div
             [ Attr.style "position" "fixed"
             , Attr.style "inset" "0"
@@ -328,7 +328,7 @@ view model =
             , Attr.style "pointer-events" "none"
             ]
             [ boardLayer model ]
-        , Cord.view (ink model.lit) (paper model.lit) lineWidth CordPulled (Motion.pullOffset model.pull)
+        , Cord.view (ink model.theme) (paper model.theme) lineWidth CordPulled (Motion.pullOffset model.pull)
         ]
 
 
@@ -346,8 +346,8 @@ boardLayer model =
         [ board model ]
 
 
-pageStyle : Bool -> Html msg
-pageStyle lit =
+pageStyle : Theme -> Html msg
+pageStyle theme =
     Html.node "style"
         []
         [ Html.text
@@ -355,26 +355,26 @@ pageStyle lit =
                 [ "html,body{margin:0;overflow:hidden;overscroll-behavior:none"
                 , ";user-select:none;-webkit-user-select:none"
                 , ";cursor:"
-                , Cursor.css (ink lit) (paper lit) lineWidth False
+                , Cursor.css (ink theme) (paper theme) lineWidth False
                 , "}"
                 ]
             )
         ]
 
 
-backgroundLayer : Bool -> Html msg
-backgroundLayer lit =
+backgroundLayer : Theme -> Html msg
+backgroundLayer theme =
     Html.div
         [ Attr.style "position" "fixed"
         , Attr.style "inset" "0"
-        , Attr.style "background-color" (paper lit)
+        , Attr.style "background-color" (paper theme)
         , Attr.style "pointer-events" "none"
         ]
         []
 
 
-eyeLayer : Bool -> Screen -> Float -> List Eye -> Html msg
-eyeLayer lit screen now eyes =
+eyeLayer : Theme -> Screen -> Float -> List Eye -> Html msg
+eyeLayer theme screen now eyes =
     Svg.svg
         [ SvgAttr.width (String.fromFloat screen.width)
         , SvgAttr.height (String.fromFloat screen.height)
@@ -382,11 +382,11 @@ eyeLayer lit screen now eyes =
         , Attr.style "inset" "0"
         , Attr.style "pointer-events" "none"
         ]
-        (List.filterMap (Eye.view (ink lit) (paper lit) lineWidth now) eyes)
+        (List.filterMap (Eye.view (ink theme) (paper theme) lineWidth now) eyes)
 
 
-boidLayer : Bool -> Screen -> List Boid -> Html msg
-boidLayer lit screen boids =
+boidLayer : Theme -> Screen -> List Boid -> Html msg
+boidLayer theme screen boids =
     Svg.svg
         [ SvgAttr.width (String.fromFloat screen.width)
         , SvgAttr.height (String.fromFloat screen.height)
@@ -394,22 +394,22 @@ boidLayer lit screen boids =
         , Attr.style "inset" "0"
         , Attr.style "pointer-events" "none"
         ]
-        (List.concatMap (boidView lit screen) boids)
+        (List.concatMap (boidView theme screen) boids)
 
 
-boidView : Bool -> Screen -> Boid -> List (Svg msg)
-boidView lit screen boid =
+boidView : Theme -> Screen -> Boid -> List (Svg msg)
+boidView theme screen boid =
     let
         heading =
             atan2 boid.vy boid.vx * 180 / pi
     in
     List.map
-        (\( x, y ) -> Bird.view (ink lit) (paper lit) lineWidth { x = x, y = y, heading = heading })
+        (\( x, y ) -> Bird.view (ink theme) (paper theme) lineWidth { x = x, y = y, heading = heading })
         (Boid.wrapCopies screen boid)
 
 
-groundLayer : Bool -> Screen -> Float -> Float -> Html msg
-groundLayer lit screen walked rate =
+groundLayer : Theme -> Screen -> Float -> Float -> Html msg
+groundLayer theme screen walked rate =
     let
         level =
             ground screen
@@ -438,7 +438,7 @@ groundLayer lit screen walked rate =
             , SvgAttr.y (String.fromFloat level)
             , SvgAttr.width (String.fromFloat screen.width)
             , SvgAttr.height (String.fromFloat groundDepth)
-            , SvgAttr.fill (paper lit)
+            , SvgAttr.fill (paper theme)
             ]
             []
             :: Svg.line
@@ -446,14 +446,14 @@ groundLayer lit screen walked rate =
                 , SvgAttr.y1 (String.fromFloat level)
                 , SvgAttr.x2 (String.fromFloat screen.width)
                 , SvgAttr.y2 (String.fromFloat level)
-                , SvgAttr.stroke (ink lit)
+                , SvgAttr.stroke (ink theme)
                 , SvgAttr.strokeWidth (String.fromFloat lineWidth)
                 ]
                 []
             :: List.map
                 (\x ->
-                    Walker.view (ink lit)
-                        (paper lit)
+                    Walker.view (ink theme)
+                        (paper theme)
                         lineWidth
                         { x = x
                         , ground = level - walkerLift
@@ -483,8 +483,8 @@ seam span here =
         []
 
 
-patternLayer : Bool -> String -> Html msg
-patternLayer lit text =
+patternLayer : Theme -> String -> Html msg
+patternLayer theme text =
     Html.pre
         [ Attr.style "position" "fixed"
         , Attr.style "inset" "0"
@@ -493,7 +493,7 @@ patternLayer lit text =
         , Attr.style "font-family" "monospace"
         , Attr.style "font-size" (String.fromFloat patternFontSize ++ "px")
         , Attr.style "line-height" (String.fromFloat patternLineHeight)
-        , Attr.style "color" (patternInk lit)
+        , Attr.style "color" (patternInk theme)
         , Attr.style "pointer-events" "none"
         , Attr.style "user-select" "none"
         ]
@@ -557,18 +557,18 @@ cellView model pointer cell =
             , SvgAttr.height (String.fromFloat cellSize)
             , SvgAttr.fill
                 (if opened then
-                    ink model.lit
+                    ink model.theme
 
                  else
-                    paper model.lit
+                    paper model.theme
                 )
-            , SvgAttr.stroke (ink model.lit)
+            , SvgAttr.stroke (ink model.theme)
             , SvgAttr.rx (String.fromFloat cellRadius)
-            , SvgAttr.cursor (Cursor.css (ink model.lit) (paper model.lit) lineWidth True)
+            , SvgAttr.cursor (Cursor.css (ink model.theme) (paper model.theme) lineWidth True)
             , Svg.Events.onClick (CellClicked cell)
             ]
             []
-            :: cellMarks model.lit seen x y
+            :: cellMarks model.theme seen x y
         )
     ]
 
@@ -591,21 +591,21 @@ content model cell =
                     Stone side
 
 
-cellMarks : Bool -> Content -> Float -> Float -> List (Svg msg)
-cellMarks lit seen x y =
+cellMarks : Theme -> Content -> Float -> Float -> List (Svg msg)
+cellMarks theme seen x y =
     case seen of
         Bare ->
             []
 
         Face face ->
-            marks lit face x y
+            marks theme face x y
 
         Stone side ->
-            [ disc lit side x y ]
+            [ disc theme side x y ]
 
 
-disc : Bool -> Othello.Disc -> Float -> Float -> Svg msg
-disc lit side x y =
+disc : Theme -> Othello.Disc -> Float -> Float -> Svg msg
+disc theme side x y =
     Svg.circle
         [ SvgAttr.cx (String.fromFloat (x + cellSize / 2))
         , SvgAttr.cy (String.fromFloat (y + cellSize / 2))
@@ -613,18 +613,18 @@ disc lit side x y =
         , SvgAttr.fill
             (case side of
                 Othello.Black ->
-                    ink lit
+                    ink theme
 
                 Othello.White ->
-                    paper lit
+                    paper theme
             )
-        , SvgAttr.stroke (ink lit)
+        , SvgAttr.stroke (ink theme)
         ]
         []
 
 
-marks : Bool -> Minesweeper.Face -> Float -> Float -> List (Svg msg)
-marks lit face x y =
+marks : Theme -> Minesweeper.Face -> Float -> Float -> List (Svg msg)
+marks theme face x y =
     case face of
         Minesweeper.Hidden ->
             []
@@ -633,19 +633,19 @@ marks lit face x y =
             []
 
         Minesweeper.Count count ->
-            List.map (pip lit x y) (pipCells count)
+            List.map (pip theme x y) (pipCells count)
 
         Minesweeper.Mine ->
-            Skull.view (ink lit) (paper lit) cellSize x y
+            Skull.view (ink theme) (paper theme) cellSize x y
 
 
-pip : Bool -> Float -> Float -> ( Int, Int ) -> Svg msg
-pip lit x y ( column, row ) =
+pip : Theme -> Float -> Float -> ( Int, Int ) -> Svg msg
+pip theme x y ( column, row ) =
     Svg.circle
         [ SvgAttr.cx (String.fromFloat (x + pipOffset column))
         , SvgAttr.cy (String.fromFloat (y + pipOffset row))
         , SvgAttr.r (String.fromFloat pipRadius)
-        , SvgAttr.fill (paper lit)
+        , SvgAttr.fill (paper theme)
         ]
         []
 
@@ -986,31 +986,49 @@ patternRows screen =
 
 
 
--- COLOR
+-- THEME
 
 
-ink : Bool -> String
-ink lit =
-    if lit then
-        "#ababab"
-
-    else
-        "#545454"
+type Theme
+    = Light
+    | Dark
 
 
-paper : Bool -> String
-paper lit =
-    if lit then
-        "#ffffff"
+toggle : Theme -> Theme
+toggle theme =
+    case theme of
+        Light ->
+            Dark
 
-    else
-        "#000000"
+        Dark ->
+            Light
 
 
-patternInk : Bool -> String
-patternInk lit =
-    if lit then
-        "#eeeeee"
+ink : Theme -> String
+ink theme =
+    case theme of
+        Light ->
+            "#ababab"
 
-    else
-        "#111111"
+        Dark ->
+            "#545454"
+
+
+paper : Theme -> String
+paper theme =
+    case theme of
+        Light ->
+            "#ffffff"
+
+        Dark ->
+            "#000000"
+
+
+patternInk : Theme -> String
+patternInk theme =
+    case theme of
+        Light ->
+            "#eeeeee"
+
+        Dark ->
+            "#111111"

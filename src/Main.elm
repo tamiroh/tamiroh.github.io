@@ -1,5 +1,6 @@
 module Main exposing (main)
 
+import Bird
 import Boid exposing (Boid)
 import Browser
 import Browser.Dom
@@ -17,7 +18,6 @@ import Othello
 import Pattern exposing (Pattern)
 import Process
 import Random
-import Ray
 import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
 import Svg.Events
@@ -401,7 +401,7 @@ boidView lit screen boid =
             atan2 boid.vy boid.vx * 180 / pi
     in
     List.map
-        (\( x, y ) -> Ray.view (ink lit) (paper lit) lineWidth { x = x, y = y, heading = heading })
+        (\( x, y ) -> Bird.view (ink lit) (paper lit) lineWidth { x = x, y = y, heading = heading })
         (Boid.wrapCopies screen boid)
 
 

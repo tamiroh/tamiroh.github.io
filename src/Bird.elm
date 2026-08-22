@@ -1,4 +1,4 @@
-module Ray exposing (Pose, view, width)
+module Bird exposing (Pose, view, width)
 
 import Geometry exposing (Position)
 import Svg exposing (Svg)

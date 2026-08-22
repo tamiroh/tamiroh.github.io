@@ -1,5 +1,9 @@
 module Motion exposing (Pull, Shock, advance, offset, pullDuration, pullOffset, shockLifetime)
 
+import Geometry exposing (Vector)
+
+
+
 -- MOTION
 
 
@@ -31,7 +35,7 @@ advance lifetime delta timer =
                 Just { current | elapsed = elapsed }
 
 
-offset : Int -> Maybe Shock -> Float -> ( Int, Int ) -> ( Float, Float )
+offset : Int -> Maybe Shock -> Float -> ( Int, Int ) -> Vector
 offset cellCount shock time cell =
     let
         ( shockX, shockY ) =
@@ -72,7 +76,7 @@ maxDistance cellCount =
     sqrt 2 * toFloat (cellCount - 1)
 
 
-displacement : Int -> Maybe Shock -> ( Int, Int ) -> ( Float, Float )
+displacement : Int -> Maybe Shock -> ( Int, Int ) -> Vector
 displacement cellCount shock ( column, row ) =
     case shock of
         Nothing ->
@@ -156,7 +160,7 @@ driftAmplitude =
     1.2
 
 
-drift : Float -> ( Int, Int ) -> ( Float, Float )
+drift : Float -> ( Int, Int ) -> Vector
 drift time ( column, row ) =
     let
         seconds =

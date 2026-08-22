@@ -1,9 +1,10 @@
 module Main exposing (main)
 
-import Boid exposing (Boid, Rect)
+import Boid exposing (Boid)
 import Browser
 import Browser.Dom
 import Browser.Events
+import Geometry exposing (Position, Rect, Screen)
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events
@@ -37,12 +38,6 @@ main =
 -- MODEL
 
 
-type alias Screen =
-    { width : Float
-    , height : Float
-    }
-
-
 type alias Model =
     { game : Game
     , pattern : List String
@@ -52,7 +47,7 @@ type alias Model =
     , pull : Maybe Pull
     , screen : Screen
     , boids : List Boid
-    , pointer : Maybe ( Float, Float )
+    , pointer : Maybe Position
     }
 
 
@@ -89,7 +84,7 @@ type Msg
     | GotViewport Browser.Dom.Viewport
     | Resized Int Int
     | BoidsPlaced (List Boid)
-    | PointerMoved ( Float, Float )
+    | PointerMoved Position
 
 
 subscriptions : Model -> Sub Msg
@@ -281,7 +276,7 @@ boidView lit screen boid =
     List.map (dot lit) (Boid.wrapCopies screen boid)
 
 
-dot : Bool -> ( Float, Float ) -> Svg msg
+dot : Bool -> Position -> Svg msg
 dot lit ( x, y ) =
     Svg.circle
         [ SvgAttr.cx (String.fromFloat x)

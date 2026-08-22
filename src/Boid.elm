@@ -1,5 +1,6 @@
-module Boid exposing (Boid, Rect, flock, generator, radius, wrapCopies)
+module Boid exposing (Boid, flock, generator, radius, wrapCopies)
 
+import Geometry exposing (Position, Rect, Screen, Vector)
 import Random
 
 
@@ -12,20 +13,6 @@ type alias Boid =
     , y : Float
     , vx : Float
     , vy : Float
-    }
-
-
-type alias Extent =
-    { width : Float
-    , height : Float
-    }
-
-
-type alias Rect =
-    { left : Float
-    , top : Float
-    , right : Float
-    , bottom : Float
     }
 
 
@@ -48,7 +35,7 @@ seedAttempts =
     8
 
 
-count : Extent -> Rect -> Int
+count : Screen -> Rect -> Int
 count screen rect =
     let
         blocked =
@@ -58,12 +45,12 @@ count screen rect =
     clamp 6 24 (round ((screen.width * screen.height - blocked) / areaPerBoid))
 
 
-generator : Extent -> Rect -> Random.Generator (List Boid)
+generator : Screen -> Rect -> Random.Generator (List Boid)
 generator screen rect =
     Random.list (count screen rect) (single screen rect)
 
 
-single : Extent -> Rect -> Random.Generator Boid
+single : Screen -> Rect -> Random.Generator Boid
 single screen rect =
     Random.map2
         (\( x, y ) heading ->
@@ -77,7 +64,7 @@ single screen rect =
         (Random.float 0 (2 * pi))
 
 
-placeGenerator : Extent -> Rect -> Int -> Random.Generator ( Float, Float )
+placeGenerator : Screen -> Rect -> Int -> Random.Generator Position
 placeGenerator screen rect attempts =
     Random.map2 Tuple.pair (Random.float 0 screen.width) (Random.float 0 screen.height)
         |> Random.andThen
@@ -90,7 +77,7 @@ placeGenerator screen rect attempts =
             )
 
 
-clearOf : Rect -> ( Float, Float ) -> Bool
+clearOf : Rect -> Position -> Bool
 clearOf rect ( x, y ) =
     let
         reach =
@@ -108,12 +95,12 @@ frameMillis =
     1000 / 60
 
 
-roomy : Extent -> Rect -> Bool
+roomy : Screen -> Rect -> Bool
 roomy screen rect =
     rect.right - rect.left < screen.width || rect.bottom - rect.top < screen.height
 
 
-flock : Float -> Extent -> Rect -> Maybe ( Float, Float ) -> List Boid -> List Boid
+flock : Float -> Screen -> Rect -> Maybe Position -> List Boid -> List Boid
 flock delta screen rect pointer boids =
     if roomy screen rect then
         List.map (steer (min 2 (delta / frameMillis)) screen rect pointer boids) boids
@@ -122,7 +109,7 @@ flock delta screen rect pointer boids =
         boids
 
 
-steer : Float -> Extent -> Rect -> Maybe ( Float, Float ) -> List Boid -> Boid -> Boid
+steer : Float -> Screen -> Rect -> Maybe Position -> List Boid -> Boid -> Boid
 steer dt screen rect pointer boids boid =
     let
         near =
@@ -165,7 +152,7 @@ fastest =
     2.2
 
 
-clampSpeed : ( Float, Float ) -> ( Float, Float )
+clampSpeed : Vector -> Vector
 clampSpeed ( vx, vy ) =
     let
         speed =
@@ -218,7 +205,7 @@ type alias Neighbor =
     }
 
 
-neighborsOf : Extent -> Boid -> List Boid -> List Neighbor
+neighborsOf : Screen -> Boid -> List Boid -> List Neighbor
 neighborsOf screen boid boids =
     List.filterMap
         (\other ->
@@ -241,7 +228,7 @@ neighborsOf screen boid boids =
         boids
 
 
-separation : List Neighbor -> ( Float, Float )
+separation : List Neighbor -> Vector
 separation near =
     let
         crowd =
@@ -260,7 +247,7 @@ separation near =
         |> average (List.length crowd)
 
 
-alignment : Boid -> List Neighbor -> ( Float, Float )
+alignment : Boid -> List Neighbor -> Vector
 alignment boid near =
     if List.isEmpty near then
         ( 0, 0 )
@@ -274,7 +261,7 @@ alignment boid near =
         ( ax - boid.vx, ay - boid.vy )
 
 
-cohesion : List Neighbor -> ( Float, Float )
+cohesion : List Neighbor -> Vector
 cohesion near =
     let
         ( hx, hy ) =
@@ -284,7 +271,7 @@ cohesion near =
     ( negate hx, negate hy )
 
 
-average : Int -> ( Float, Float ) -> ( Float, Float )
+average : Int -> Vector -> Vector
 average size ( x, y ) =
     if size == 0 then
         ( 0, 0 )
@@ -307,7 +294,7 @@ boardClearance =
     34
 
 
-avoid : Extent -> Rect -> Boid -> ( Float, Float )
+avoid : Screen -> Rect -> Boid -> Vector
 avoid screen rect boid =
     let
         dx =
@@ -369,7 +356,7 @@ type Side
     | Bottom
 
 
-nearestExit : Extent -> Rect -> Float -> Float -> Maybe Side
+nearestExit : Screen -> Rect -> Float -> Float -> Maybe Side
 nearestExit screen rect x y =
     let
         sideways =
@@ -401,7 +388,7 @@ fleeRange =
     120
 
 
-flee : Extent -> Maybe ( Float, Float ) -> Boid -> ( Float, Float )
+flee : Screen -> Maybe Position -> Boid -> Vector
 flee screen pointer boid =
     case pointer of
         Nothing ->
@@ -432,7 +419,7 @@ flee screen pointer boid =
                 ( ux * push, uy * push )
 
 
-normalize : ( Float, Float ) -> ( Float, Float )
+normalize : Vector -> Vector
 normalize ( x, y ) =
     let
         length =
@@ -449,7 +436,7 @@ normalize ( x, y ) =
 -- TORUS
 
 
-confine : Extent -> Rect -> ( Float, Float ) -> ( Float, Float )
+confine : Screen -> Rect -> Position -> Position
 confine screen rect point =
     let
         ( x, y ) =
@@ -458,7 +445,7 @@ confine screen rect point =
     ( wrap screen.width x, wrap screen.height y )
 
 
-pushOut : Extent -> Rect -> ( Float, Float ) -> ( Float, Float )
+pushOut : Screen -> Rect -> Position -> Position
 pushOut screen outer ( x, y ) =
     let
         rect =
@@ -506,7 +493,7 @@ wrapDelta span value =
         value
 
 
-wrapCopies : Extent -> Boid -> List ( Float, Float )
+wrapCopies : Screen -> Boid -> List Position
 wrapCopies screen boid =
     let
         xs =

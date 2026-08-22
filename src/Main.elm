@@ -221,7 +221,7 @@ pace model =
                     wrapDelta model.screen.width (strolled model.screen model.walked - px)
 
                 above =
-                    model.screen.height - Walker.height / 2 - py
+                    ground model.screen - Walker.height / 2 - py
 
                 span =
                     sqrt (aside * aside + above * above)
@@ -284,7 +284,7 @@ view model =
         , backgroundLayer model.lit
         , patternLayer model.lit model.pattern
         , boidLayer model.lit model.screen model.boids
-        , walkerLayer model.lit model.screen model.walked (pace model / walkerSpeed)
+        , groundLayer model.lit model.screen model.walked (pace model / walkerSpeed)
         , Html.div
             [ Attr.style "position" "fixed"
             , Attr.style "inset" "0"
@@ -458,9 +458,12 @@ tooth lit midX midY =
         []
 
 
-walkerLayer : Bool -> Screen -> Float -> Float -> Html msg
-walkerLayer lit screen walked rate =
+groundLayer : Bool -> Screen -> Float -> Float -> Html msg
+groundLayer lit screen walked rate =
     let
+        level =
+            ground screen
+
         here =
             strolled screen walked
 
@@ -480,19 +483,36 @@ walkerLayer lit screen walked rate =
         , Attr.style "inset" "0"
         , Attr.style "pointer-events" "none"
         ]
-        (List.map
-            (\x ->
-                Walker.view (ink lit)
-                    (paper lit)
-                    lineWidth
-                    { x = x
-                    , ground = screen.height
-                    , swing = swing
-                    , tilt = tilt
-                    , standing = rate <= 0
-                    }
-            )
-            (here :: seam screen.width here)
+        (Svg.rect
+            [ SvgAttr.x "0"
+            , SvgAttr.y (String.fromFloat level)
+            , SvgAttr.width (String.fromFloat screen.width)
+            , SvgAttr.height (String.fromFloat groundDepth)
+            , SvgAttr.fill (paper lit)
+            ]
+            []
+            :: Svg.line
+                [ SvgAttr.x1 "0"
+                , SvgAttr.y1 (String.fromFloat level)
+                , SvgAttr.x2 (String.fromFloat screen.width)
+                , SvgAttr.y2 (String.fromFloat level)
+                , SvgAttr.stroke (ink lit)
+                , SvgAttr.strokeWidth (String.fromFloat lineWidth)
+                ]
+                []
+            :: List.map
+                (\x ->
+                    Walker.view (ink lit)
+                        (paper lit)
+                        lineWidth
+                        { x = x
+                        , ground = level - walkerLift
+                        , swing = swing
+                        , tilt = tilt
+                        , standing = rate <= 0
+                        }
+                )
+                (here :: seam screen.width here)
         )
 
 
@@ -883,6 +903,20 @@ skullToothGap =
 
 
 
+-- GROUND
+
+
+groundDepth : Float
+groundDepth =
+    52
+
+
+ground : Screen -> Float
+ground screen =
+    screen.height - groundDepth
+
+
+
 -- WALKER
 
 
@@ -919,6 +953,11 @@ walkerFlail =
 walkerTilt : Float
 walkerTilt =
     12
+
+
+walkerLift : Float
+walkerLift =
+    3
 
 
 walkerFocus : Float

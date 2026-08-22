@@ -4,6 +4,7 @@ import Browser
 import Browser.Events
 import Html exposing (Html)
 import Html.Attributes as Attr
+import Html.Events
 import Random
 import Set exposing (Set)
 import Svg exposing (Svg)
@@ -70,6 +71,7 @@ type alias Model =
     , pattern : List String
     , shock : Maybe Shock
     , time : Float
+    , lit : Bool
     }
 
 
@@ -81,6 +83,7 @@ init _ =
       , pattern = []
       , shock = Nothing
       , time = 0
+      , lit = True
       }
     , Random.generate PatternGenerated patternGenerator
     )
@@ -96,6 +99,7 @@ type Msg
     | PatternGenerated Pattern
     | Tick
     | Frame Float
+    | Pulled
 
 
 subscriptions : Model -> Sub Msg
@@ -135,6 +139,9 @@ update msg model =
         Frame delta ->
             ( { model | time = model.time + delta, shock = advance delta model.shock }, Cmd.none )
 
+        Pulled ->
+            ( { model | lit = not model.lit }, Cmd.none )
+
 
 struck : Cell -> Model -> Model
 struck cell model =
@@ -166,7 +173,8 @@ advance delta shock =
 view : Model -> Html Msg
 view model =
     Html.div []
-        [ patternLayer model.pattern
+        [ backgroundLayer model.lit
+        , patternLayer model.lit model.pattern
         , Html.div
             [ Attr.style "position" "relative"
             , Attr.style "display" "flex"
@@ -175,7 +183,7 @@ view model =
             , Attr.style "min-height" "100vh"
             ]
             [ boardLayer model ]
-        , cordLayer
+        , cordLayer model.lit
         ]
 
 
@@ -201,19 +209,32 @@ boardLayer model =
         [ board model ]
 
 
-cordLayer : Html msg
-cordLayer =
+backgroundLayer : Bool -> Html msg
+backgroundLayer lit =
+    Html.div
+        [ Attr.style "position" "fixed"
+        , Attr.style "inset" "0"
+        , Attr.style "background-color" (paper lit)
+        , Attr.style "pointer-events" "none"
+        ]
+        []
+
+
+cordLayer : Bool -> Html Msg
+cordLayer lit =
     Html.div
         [ Attr.style "position" "fixed"
         , Attr.style "top" "0"
         , Attr.style "right" (String.fromFloat cordInset ++ "px")
-        , Attr.style "pointer-events" "none"
+        , Attr.style "cursor" "pointer"
+        , Attr.style "user-select" "none"
+        , Html.Events.onClick Pulled
         ]
-        [ cord ]
+        [ cord lit ]
 
 
-cord : Svg msg
-cord =
+cord : Bool -> Svg msg
+cord lit =
     Svg.svg
         [ SvgAttr.width (String.fromFloat cordWidth)
         , SvgAttr.height (String.fromFloat (cordLength + cordGripHeight + lineWidth))
@@ -223,7 +244,7 @@ cord =
             , SvgAttr.y1 "0"
             , SvgAttr.x2 (String.fromFloat (cordWidth / 2))
             , SvgAttr.y2 (String.fromFloat cordLength)
-            , SvgAttr.stroke ink
+            , SvgAttr.stroke (ink lit)
             , SvgAttr.strokeWidth (String.fromFloat lineWidth)
             ]
             []
@@ -233,16 +254,16 @@ cord =
             , SvgAttr.width (String.fromFloat cordGripWidth)
             , SvgAttr.height (String.fromFloat cordGripHeight)
             , SvgAttr.rx (String.fromFloat (cordGripWidth / 2))
-            , SvgAttr.fill paper
-            , SvgAttr.stroke ink
+            , SvgAttr.fill (paper lit)
+            , SvgAttr.stroke (ink lit)
             , SvgAttr.strokeWidth (String.fromFloat lineWidth)
             ]
             []
         ]
 
 
-patternLayer : List String -> Html msg
-patternLayer rows =
+patternLayer : Bool -> List String -> Html msg
+patternLayer lit rows =
     Html.pre
         [ Attr.style "position" "fixed"
         , Attr.style "inset" "0"
@@ -251,7 +272,7 @@ patternLayer rows =
         , Attr.style "font-family" "monospace"
         , Attr.style "font-size" "13px"
         , Attr.style "line-height" "1.2"
-        , Attr.style "color" patternInk
+        , Attr.style "color" (patternInk lit)
         , Attr.style "pointer-events" "none"
         , Attr.style "user-select" "none"
         ]
@@ -294,12 +315,12 @@ cellView model cell =
         , SvgAttr.height (String.fromFloat cellSize)
         , SvgAttr.fill
             (if opened then
-                ink
+                ink model.lit
 
              else
-                paper
+                paper model.lit
             )
-        , SvgAttr.stroke ink
+        , SvgAttr.stroke (ink model.lit)
         , SvgAttr.strokeWidth (String.fromFloat lineWidth)
         , SvgAttr.shapeRendering "crispEdges"
         , SvgAttr.cursor "pointer"
@@ -316,16 +337,16 @@ cellView model cell =
 
 pips : Model -> Cell -> Float -> Float -> List (Svg msg)
 pips model cell x y =
-    List.map (pip x y) (pipCells (adjacentMines model.mines cell))
+    List.map (pip model.lit x y) (pipCells (adjacentMines model.mines cell))
 
 
-pip : Float -> Float -> ( Int, Int ) -> Svg msg
-pip x y ( column, row ) =
+pip : Bool -> Float -> Float -> ( Int, Int ) -> Svg msg
+pip lit x y ( column, row ) =
     Svg.circle
         [ SvgAttr.cx (String.fromFloat (x + pipOffset column))
         , SvgAttr.cy (String.fromFloat (y + pipOffset row))
         , SvgAttr.r (String.fromFloat pipRadius)
-        , SvgAttr.fill paper
+        , SvgAttr.fill (paper lit)
         ]
         []
 
@@ -537,19 +558,31 @@ pipCells count =
 -- COLOR
 
 
-ink : String
-ink =
-    "#ababab"
+ink : Bool -> String
+ink lit =
+    if lit then
+        "#ababab"
+
+    else
+        "#545454"
 
 
-paper : String
-paper =
-    "#ffffff"
+paper : Bool -> String
+paper lit =
+    if lit then
+        "#ffffff"
+
+    else
+        "#000000"
 
 
-patternInk : String
-patternInk =
-    "#eeeeee"
+patternInk : Bool -> String
+patternInk lit =
+    if lit then
+        "#eeeeee"
+
+    else
+        "#111111"
 
 
 

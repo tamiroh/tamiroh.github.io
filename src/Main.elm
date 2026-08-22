@@ -194,16 +194,7 @@ update msg model =
                     ( { model | eyes = eye :: model.eyes }, Cmd.none )
 
         Frame delta ->
-            ( { model
-                | time = model.time + delta
-                , shock = Motion.advance (Motion.shockLifetime Grid.count) delta model.shock
-                , pull = Motion.advance Motion.pullDuration delta model.pull
-                , boids = Boid.flock delta (field model.screen) model.pointer model.boids
-                , walked = model.walked + pace model * delta / 1000
-                , eyes = List.filterMap (Eye.alive model.time model.pointer) model.eyes
-              }
-            , Cmd.none
-            )
+            ( advance delta model, Cmd.none )
 
         Pulled ->
             ( { model | lit = not model.lit, pull = Just { elapsed = 0 } }, Cmd.none )
@@ -296,6 +287,18 @@ over play =
 
         Discs othello ->
             Othello.isOver othello
+
+
+advance : Float -> Model -> Model
+advance delta model =
+    { model
+        | time = model.time + delta
+        , shock = Motion.advance (Motion.shockLifetime Grid.count) delta model.shock
+        , pull = Motion.advance Motion.pullDuration delta model.pull
+        , boids = Boid.flock delta (field model.screen) model.pointer model.boids
+        , walked = model.walked + pace model * delta / 1000
+        , eyes = List.filterMap (Eye.alive model.time model.pointer) model.eyes
+    }
 
 
 struck : Cell -> Model -> Model

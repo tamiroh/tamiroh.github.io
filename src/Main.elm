@@ -102,6 +102,7 @@ type Msg
     | PointerMoved Position
     | DragStarted Position
     | DragEnded
+    | TouchEnded
 
 
 subscriptions : Model -> Sub Msg
@@ -118,6 +119,11 @@ subscriptions _ =
 pointerDecoder : Json.Decode.Decoder Msg
 pointerDecoder =
     Json.Decode.map PointerMoved positionDecoder
+
+
+touchDecoder : Json.Decode.Decoder Position
+touchDecoder =
+    Json.Decode.at [ "touches", "0" ] positionDecoder
 
 
 positionDecoder : Json.Decode.Decoder Position
@@ -215,12 +221,20 @@ update msg model =
             ( { model | drawing = Just [ point ] }, Cmd.none )
 
         DragEnded ->
-            case model.drawing of
-                Nothing ->
-                    ( model, Cmd.none )
+            ( endDrag model, Cmd.none )
 
-                Just points ->
-                    ( { model | drawing = Nothing, bodies = dropped points model.bodies }, Cmd.none )
+        TouchEnded ->
+            ( endDrag { model | pointer = Nothing }, Cmd.none )
+
+
+endDrag : Model -> Model
+endDrag model =
+    case model.drawing of
+        Nothing ->
+            model
+
+        Just points ->
+            { model | drawing = Nothing, bodies = dropped points model.bodies }
 
 
 dropped : List Position -> List Rigid.Body -> List Rigid.Body
@@ -320,7 +334,12 @@ backgroundLayer lit =
         [ Attr.style "position" "fixed"
         , Attr.style "inset" "0"
         , Attr.style "background-color" (paper lit)
+        , Attr.style "touch-action" "none"
         , Html.Events.on "mousedown" (Json.Decode.map DragStarted positionDecoder)
+        , Html.Events.on "touchstart" (Json.Decode.map DragStarted touchDecoder)
+        , Html.Events.on "touchmove" (Json.Decode.map PointerMoved touchDecoder)
+        , Html.Events.on "touchend" (Json.Decode.succeed TouchEnded)
+        , Html.Events.on "touchcancel" (Json.Decode.succeed TouchEnded)
         ]
         []
 

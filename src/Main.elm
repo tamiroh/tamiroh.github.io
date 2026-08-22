@@ -5,11 +5,13 @@ import Boid exposing (Boid)
 import Browser
 import Browser.Dom
 import Browser.Events
+import Cord
+import Cursor
+import Eye exposing (Eye)
 import Geometry exposing (Position, Screen, Vector, wrap, wrapDelta)
 import Grid exposing (Cell)
 import Html exposing (Html)
 import Html.Attributes as Attr
-import Html.Events
 import Json.Decode
 import Minesweeper
 import Motion exposing (Pull, Shock)
@@ -18,6 +20,7 @@ import Othello
 import Pattern exposing (Pattern)
 import Process
 import Random
+import Skull
 import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
 import Svg.Events
@@ -82,15 +85,6 @@ init _ =
 
 
 -- UPDATE
-
-
-type alias Eye =
-    { x : Float
-    , y : Float
-    , born : Float
-    , life : Float
-    , shut : Maybe Float
-    }
 
 
 type Content
@@ -187,7 +181,7 @@ update msg model =
             ( model
             , Cmd.batch
                 [ Random.generate PatternGenerated Pattern.generator
-                , Random.generate EyeOpened (eyeGenerator model.screen model.time)
+                , Random.generate EyeOpened (Eye.generator model.screen (field model.screen).objects model.time)
                 ]
             )
 
@@ -206,7 +200,7 @@ update msg model =
                 , pull = Motion.advance Motion.pullDuration delta model.pull
                 , boids = Boid.flock delta (field model.screen) model.pointer model.boids
                 , walked = model.walked + pace model * delta / 1000
-                , eyes = List.filterMap (startle model) model.eyes
+                , eyes = List.filterMap (Eye.alive model.time model.pointer) model.eyes
               }
             , Cmd.none
             )
@@ -331,7 +325,7 @@ view model =
             , Attr.style "pointer-events" "none"
             ]
             [ boardLayer model ]
-        , cordLayer model.lit (Motion.pullOffset model.pull)
+        , Cord.view (ink model.lit) (paper model.lit) lineWidth Pulled (Motion.pullOffset model.pull)
         ]
 
 
@@ -358,7 +352,7 @@ pageStyle lit =
                 [ "html,body{margin:0;overflow:hidden;overscroll-behavior:none"
                 , ";user-select:none;-webkit-user-select:none"
                 , ";cursor:"
-                , cursor lit False
+                , Cursor.css (ink lit) (paper lit) lineWidth False
                 , "}"
                 ]
             )
@@ -376,49 +370,6 @@ backgroundLayer lit =
         []
 
 
-cordLayer : Bool -> Float -> Html Msg
-cordLayer lit dy =
-    Html.div
-        [ Attr.style "position" "fixed"
-        , Attr.style "top" "0"
-        , Attr.style "right" (String.fromFloat cordInset ++ "px")
-        , Attr.style "cursor" (cursor lit True)
-        , Attr.style "user-select" "none"
-        , Html.Events.onClick Pulled
-        ]
-        [ cord lit dy ]
-
-
-cord : Bool -> Float -> Svg msg
-cord lit dy =
-    Svg.svg
-        [ SvgAttr.width (String.fromFloat cordWidth)
-        , SvgAttr.height (String.fromFloat (cordLength + cordGripHeight + lineWidth))
-        , SvgAttr.style "overflow: visible"
-        ]
-        [ Svg.line
-            [ SvgAttr.x1 (String.fromFloat (cordWidth / 2))
-            , SvgAttr.y1 "0"
-            , SvgAttr.x2 (String.fromFloat (cordWidth / 2))
-            , SvgAttr.y2 (String.fromFloat (cordLength + dy))
-            , SvgAttr.stroke (ink lit)
-            , SvgAttr.strokeWidth (String.fromFloat lineWidth)
-            ]
-            []
-        , Svg.rect
-            [ SvgAttr.x (String.fromFloat ((cordWidth - cordGripWidth) / 2))
-            , SvgAttr.y (String.fromFloat (cordLength + dy))
-            , SvgAttr.width (String.fromFloat cordGripWidth)
-            , SvgAttr.height (String.fromFloat cordGripHeight)
-            , SvgAttr.rx (String.fromFloat (cordGripWidth / 2))
-            , SvgAttr.fill (paper lit)
-            , SvgAttr.stroke (ink lit)
-            , SvgAttr.strokeWidth (String.fromFloat lineWidth)
-            ]
-            []
-        ]
-
-
 eyeLayer : Bool -> Screen -> Float -> List Eye -> Html msg
 eyeLayer lit screen now eyes =
     Svg.svg
@@ -428,58 +379,7 @@ eyeLayer lit screen now eyes =
         , Attr.style "inset" "0"
         , Attr.style "pointer-events" "none"
         ]
-        (List.filterMap (eyeView lit now) eyes)
-
-
-eyeView : Bool -> Float -> Eye -> Maybe (Svg msg)
-eyeView lit now eye =
-    let
-        open =
-            aperture now eye
-    in
-    if open < eyeShut then
-        Nothing
-
-    else
-        let
-            half =
-                eyeSpan / 2
-
-            spread =
-                eyeOpening / 2 * open
-        in
-        Just
-            (Svg.g
-                [ SvgAttr.transform
-                    ("translate(" ++ String.fromFloat eye.x ++ "," ++ String.fromFloat eye.y ++ ")")
-                , SvgAttr.stroke (ink lit)
-                , SvgAttr.strokeWidth (String.fromFloat lineWidth)
-                , SvgAttr.strokeLinejoin "round"
-                ]
-                [ Svg.path [ SvgAttr.d (lens half spread), SvgAttr.fill (paper lit) ] []
-                , Svg.circle
-                    [ SvgAttr.r (String.fromFloat (min (spread * 0.55) (half * 0.4)))
-                    , SvgAttr.fill (ink lit)
-                    , SvgAttr.stroke "none"
-                    ]
-                    []
-                ]
-            )
-
-
-lens : Float -> Float -> String
-lens half spread =
-    String.join " "
-        [ "M"
-        , String.fromFloat (negate half)
-        , "0 Q 0"
-        , String.fromFloat spread
-        , String.fromFloat half
-        , "0 Q 0"
-        , String.fromFloat (negate spread)
-        , String.fromFloat (negate half)
-        , "0 Z"
-        ]
+        (List.filterMap (Eye.view (ink lit) (paper lit) lineWidth now) eyes)
 
 
 boidLayer : Bool -> Screen -> List Boid -> Html msg
@@ -503,61 +403,6 @@ boidView lit screen boid =
     List.map
         (\( x, y ) -> Bird.view (ink lit) (paper lit) lineWidth { x = x, y = y, heading = heading })
         (Boid.wrapCopies screen boid)
-
-
-skull : Bool -> Float -> Float -> List (Svg msg)
-skull lit x y =
-    let
-        midX =
-            x + cellSize / 2
-
-        midY =
-            y + cellSize / 2
-    in
-    [ Svg.circle
-        [ SvgAttr.cx (String.fromFloat midX)
-        , SvgAttr.cy (String.fromFloat (midY - skullLift))
-        , SvgAttr.r (String.fromFloat skullRadius)
-        , SvgAttr.fill (paper lit)
-        ]
-        []
-    , Svg.rect
-        [ SvgAttr.x (String.fromFloat (midX - skullJawWidth / 2))
-        , SvgAttr.y (String.fromFloat (midY + skullJawTop))
-        , SvgAttr.width (String.fromFloat skullJawWidth)
-        , SvgAttr.height (String.fromFloat skullJawHeight)
-        , SvgAttr.rx (String.fromFloat (skullJawHeight / 3))
-        , SvgAttr.fill (paper lit)
-        ]
-        []
-    , socket lit (midX - skullEyeGap) midY
-    , socket lit (midX + skullEyeGap) midY
-    , tooth lit (midX - skullToothGap) midY
-    , tooth lit (midX + skullToothGap) midY
-    ]
-
-
-socket : Bool -> Float -> Float -> Svg msg
-socket lit midX midY =
-    Svg.circle
-        [ SvgAttr.cx (String.fromFloat midX)
-        , SvgAttr.cy (String.fromFloat (midY - skullEyeLift))
-        , SvgAttr.r (String.fromFloat skullEyeRadius)
-        , SvgAttr.fill (ink lit)
-        ]
-        []
-
-
-tooth : Bool -> Float -> Float -> Svg msg
-tooth lit midX midY =
-    Svg.rect
-        [ SvgAttr.x (String.fromFloat (midX - skullToothWidth / 2))
-        , SvgAttr.y (String.fromFloat (midY + skullToothTop))
-        , SvgAttr.width (String.fromFloat skullToothWidth)
-        , SvgAttr.height (String.fromFloat skullToothHeight)
-        , SvgAttr.fill (ink lit)
-        ]
-        []
 
 
 groundLayer : Bool -> Screen -> Float -> Float -> Html msg
@@ -716,7 +561,7 @@ cellView model pointer cell =
                 )
             , SvgAttr.stroke (ink model.lit)
             , SvgAttr.rx (String.fromFloat cellRadius)
-            , SvgAttr.cursor (cursor model.lit True)
+            , SvgAttr.cursor (Cursor.css (ink model.lit) (paper model.lit) lineWidth True)
             , Svg.Events.onClick (Clicked cell)
             ]
             []
@@ -788,7 +633,7 @@ marks lit face x y =
             List.map (pip lit x y) (pipCells count)
 
         Minesweeper.Mine ->
-            skull lit x y
+            Skull.view (ink lit) (paper lit) cellSize x y
 
 
 pip : Bool -> Float -> Float -> ( Int, Int ) -> Svg msg
@@ -861,35 +706,6 @@ field screen =
 
 
 
--- CORD
-
-
-cordInset : Float
-cordInset =
-    64
-
-
-cordLength : Float
-cordLength =
-    96
-
-
-cordWidth : Float
-cordWidth =
-    16
-
-
-cordGripWidth : Float
-cordGripWidth =
-    9
-
-
-cordGripHeight : Float
-cordGripHeight =
-    16
-
-
-
 -- PIPS
 
 
@@ -956,239 +772,6 @@ discRadius =
 thinkingDelay : Float
 thinkingDelay =
     420
-
-
-
--- EYES
-
-
-eyeSpan : Float
-eyeSpan =
-    26
-
-
-eyeOpening : Float
-eyeOpening =
-    18
-
-
-eyeShut : Float
-eyeShut =
-    0.04
-
-
-eyeSnap : Float
-eyeSnap =
-    5
-
-
-eyeChance : Float
-eyeChance =
-    0.4
-
-
-eyeShy : Float
-eyeShy =
-    90
-
-
-eyeBlink : Float
-eyeBlink =
-    110
-
-
-eyeAttempts : Int
-eyeAttempts =
-    6
-
-
-eyeGenerator : Screen -> Float -> Random.Generator (Maybe Eye)
-eyeGenerator screen now =
-    Random.andThen
-        (\roll ->
-            if roll > eyeChance then
-                Random.constant Nothing
-
-            else
-                Random.map2
-                    (\spot life ->
-                        Maybe.map
-                            (\( x, y ) -> { x = x, y = y, born = now, life = life, shut = Nothing })
-                            spot
-                    )
-                    (eyeSpot screen eyeAttempts)
-                    (Random.float 2400 4600)
-        )
-        (Random.float 0 1)
-
-
-eyeSpot : Screen -> Int -> Random.Generator (Maybe Position)
-eyeSpot screen attempts =
-    Random.map2 Tuple.pair (Random.float 0 screen.width) (Random.float 0 screen.height)
-        |> Random.andThen
-            (\point ->
-                if clearOfObjects screen point then
-                    Random.constant (Just point)
-
-                else if attempts <= 0 then
-                    Random.constant Nothing
-
-                else
-                    eyeSpot screen (attempts - 1)
-            )
-
-
-clearOfObjects : Screen -> Position -> Bool
-clearOfObjects screen point =
-    List.all
-        (\object -> not (Obstacle.contains (Obstacle.grow (eyeSpan / 2) object) point))
-        (field screen).objects
-
-
-aperture : Float -> Eye -> Float
-aperture now eye =
-    min 1 (eyeSnap * sin (pi * clamp 0 1 ((now - eye.born) / eye.life)))
-        * closing now eye
-
-
-closing : Float -> Eye -> Float
-closing now eye =
-    case eye.shut of
-        Nothing ->
-            1
-
-        Just at ->
-            max 0 (1 - (now - at) / eyeBlink)
-
-
-startle : Model -> Eye -> Maybe Eye
-startle model eye =
-    if model.time - eye.born >= eye.life then
-        Nothing
-
-    else
-        case eye.shut of
-            Just at ->
-                if model.time - at >= eyeBlink then
-                    Nothing
-
-                else
-                    Just eye
-
-            Nothing ->
-                if noticed model.pointer eye then
-                    Just { eye | shut = Just model.time }
-
-                else
-                    Just eye
-
-
-noticed : Maybe Position -> Eye -> Bool
-noticed pointer eye =
-    case pointer of
-        Nothing ->
-            False
-
-        Just ( px, py ) ->
-            (px - eye.x) ^ 2 + (py - eye.y) ^ 2 < eyeShy ^ 2
-
-
-
--- CURSOR
-
-
-cursorRadius : Float
-cursorRadius =
-    11
-
-
-cursor : Bool -> Bool -> String
-cursor lit active =
-    let
-        edge =
-            cursorRadius + lineWidth
-
-        skin =
-            if active then
-                ink lit
-
-            else
-                paper lit
-
-        face =
-            if active then
-                paper lit
-
-            else
-                ink lit
-    in
-    String.concat
-        [ "url(\"data:image/svg+xml,"
-        , "%3Csvg xmlns='http://www.w3.org/2000/svg' width='"
-        , num (edge * 2)
-        , "' height='"
-        , num (edge * 2)
-        , "'%3E%3Cg stroke='"
-        , webColour (ink lit)
-        , "' stroke-width='"
-        , num lineWidth
-        , "' stroke-linecap='round'%3E%3Ccircle cx='"
-        , num edge
-        , "' cy='"
-        , num edge
-        , "' r='"
-        , num cursorRadius
-        , "' fill='"
-        , webColour skin
-        , "'/%3E"
-        , wink face (edge - cursorRadius * 0.35) (edge - cursorRadius * 0.28)
-        , wink face (edge + cursorRadius * 0.35) (edge - cursorRadius * 0.28)
-        , "%3Cpath d='M "
-        , num (edge - cursorRadius * 0.42)
-        , " "
-        , num (edge + cursorRadius * 0.12)
-        , " Q "
-        , num edge
-        , " "
-        , num (edge + cursorRadius * 0.6)
-        , " "
-        , num (edge + cursorRadius * 0.42)
-        , " "
-        , num (edge + cursorRadius * 0.12)
-        , "' fill='none' stroke='"
-        , webColour face
-        , "'/%3E%3C/g%3E%3C/svg%3E"
-        , "\") "
-        , num edge
-        , " "
-        , num edge
-        , ", auto"
-        ]
-
-
-wink : String -> Float -> Float -> String
-wink colour x y =
-    String.concat
-        [ "%3Ccircle cx='"
-        , num x
-        , "' cy='"
-        , num y
-        , "' r='"
-        , num (cursorRadius * 0.13)
-        , "' fill='"
-        , webColour colour
-        , "' stroke='none'/%3E"
-        ]
-
-
-num : Float -> String
-num =
-    String.fromFloat
-
-
-webColour : String -> String
-webColour =
-    String.replace "#" "%23"
 
 
 
@@ -1280,70 +863,6 @@ about midX midY size =
         , String.fromFloat (negate midY)
         , ")"
         ]
-
-
-
--- SKULL
-
-
-skullRadius : Float
-skullRadius =
-    cellSize * 0.26
-
-
-skullLift : Float
-skullLift =
-    cellSize * 0.06
-
-
-skullJawWidth : Float
-skullJawWidth =
-    cellSize * 0.32
-
-
-skullJawHeight : Float
-skullJawHeight =
-    cellSize * 0.17
-
-
-skullJawTop : Float
-skullJawTop =
-    cellSize * 0.1
-
-
-skullEyeRadius : Float
-skullEyeRadius =
-    cellSize * 0.095
-
-
-skullEyeGap : Float
-skullEyeGap =
-    cellSize * 0.105
-
-
-skullEyeLift : Float
-skullEyeLift =
-    cellSize * 0.07
-
-
-skullToothWidth : Float
-skullToothWidth =
-    cellSize * 0.044
-
-
-skullToothHeight : Float
-skullToothHeight =
-    cellSize * 0.09
-
-
-skullToothTop : Float
-skullToothTop =
-    cellSize * 0.13
-
-
-skullToothGap : Float
-skullToothGap =
-    cellSize * 0.055
 
 
 

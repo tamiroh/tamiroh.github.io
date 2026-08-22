@@ -1,4 +1,4 @@
-module Boid exposing (Boid, Field, flock, generator, radius, wrapCopies)
+module Boid exposing (Boid, Field, flock, generator, wrapCopies)
 
 import Geometry exposing (Position, Screen, Vector, wrap, wrapDelta)
 import Obstacle exposing (Obstacle)

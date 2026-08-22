@@ -1,4 +1,4 @@
-module Walker exposing (Pose, height, view, width)
+module Walker exposing (height, view, width)
 
 import Geometry exposing (Position)
 import Svg exposing (Svg)

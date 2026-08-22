@@ -17,7 +17,7 @@ import Set exposing (Set)
 
 
 
--- MINESWEEPER
+-- GAME
 
 
 type alias Cell =
@@ -58,6 +58,20 @@ cells =
     List.concatMap (\column -> List.map (Tuple.pair column) cellIndices) cellIndices
 
 
+neighbors : Cell -> List Cell
+neighbors ( column, row ) =
+    List.concatMap
+        (\columnOffset ->
+            List.map (\rowOffset -> ( column + columnOffset, row + rowOffset )) [ -1, 0, 1 ]
+        )
+        [ -1, 0, 1 ]
+        |> List.filter (\cell -> cell /= ( column, row ) && List.member cell cells)
+
+
+
+-- BUILD
+
+
 new : Game
 new =
     Game { mines = Set.empty, revealed = Set.empty, status = Ready }
@@ -67,6 +81,27 @@ start : Cell -> Random.Generator Game
 start safe =
     Random.map (\mines -> Game { mines = mines, revealed = Set.empty, status = Playing })
         (minesGenerator safe)
+
+
+minesGenerator : Cell -> Random.Generator (Set Cell)
+minesGenerator safe =
+    let
+        candidates =
+            List.filter ((/=) safe) cells
+    in
+    Random.list (List.length candidates) (Random.float 0 1)
+        |> Random.map
+            (\keys ->
+                List.map2 Tuple.pair keys candidates
+                    |> List.sortBy Tuple.first
+                    |> List.take mineCount
+                    |> List.map Tuple.second
+                    |> Set.fromList
+            )
+
+
+
+-- PLAY
 
 
 reveal : Cell -> Game -> Game
@@ -89,6 +124,22 @@ reveal cell (Game game) =
                     else
                         Playing
             }
+
+
+spread : Set Cell -> Cell -> Set Cell -> Set Cell
+spread mines cell revealed =
+    if Set.member cell revealed then
+        revealed
+
+    else if minesAround mines cell == 0 then
+        List.foldl (spread mines) (Set.insert cell revealed) (neighbors cell)
+
+    else
+        Set.insert cell revealed
+
+
+
+-- QUERY
 
 
 isReady : Game -> Bool
@@ -122,45 +173,6 @@ adjacentMines cell (Game game) =
     minesAround game.mines cell
 
 
-minesGenerator : Cell -> Random.Generator (Set Cell)
-minesGenerator safe =
-    let
-        candidates =
-            List.filter ((/=) safe) cells
-    in
-    Random.list (List.length candidates) (Random.float 0 1)
-        |> Random.map
-            (\keys ->
-                List.map2 Tuple.pair keys candidates
-                    |> List.sortBy Tuple.first
-                    |> List.take mineCount
-                    |> List.map Tuple.second
-                    |> Set.fromList
-            )
-
-
-spread : Set Cell -> Cell -> Set Cell -> Set Cell
-spread mines cell revealed =
-    if Set.member cell revealed then
-        revealed
-
-    else if minesAround mines cell == 0 then
-        List.foldl (spread mines) (Set.insert cell revealed) (neighbors cell)
-
-    else
-        Set.insert cell revealed
-
-
 minesAround : Set Cell -> Cell -> Int
 minesAround mines cell =
     List.length (List.filter (\neighbor -> Set.member neighbor mines) (neighbors cell))
-
-
-neighbors : Cell -> List Cell
-neighbors ( column, row ) =
-    List.concatMap
-        (\columnOffset ->
-            List.map (\rowOffset -> ( column + columnOffset, row + rowOffset )) [ -1, 0, 1 ]
-        )
-        [ -1, 0, 1 ]
-        |> List.filter (\cell -> cell /= ( column, row ) && List.member cell cells)

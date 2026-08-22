@@ -387,6 +387,11 @@ pip lit x y ( column, row ) =
 -- LAYOUT
 
 
+lineWidth : Float
+lineWidth =
+    2
+
+
 spacing : Float
 spacing =
     48
@@ -412,6 +417,11 @@ boardSize =
     spacing * toFloat Minesweeper.cellCount + margin * 2
 
 
+position : Int -> Float
+position index =
+    margin + spacing * toFloat index
+
+
 obstacle : Screen -> Rect
 obstacle screen =
     { left = screen.width / 2 - boardSize / 2
@@ -421,14 +431,8 @@ obstacle screen =
     }
 
 
-position : Int -> Float
-position index =
-    margin + spacing * toFloat index
 
-
-lineWidth : Float
-lineWidth =
-    2
+-- CORD
 
 
 cordInset : Float
@@ -454,6 +458,10 @@ cordGripWidth =
 cordGripHeight : Float
 cordGripHeight =
     16
+
+
+
+-- PIPS
 
 
 pipRadius : Float

@@ -43,6 +43,10 @@ offset cellCount shock time cell =
     ( shockX + driftX, shockY + driftY )
 
 
+
+-- SHOCK
+
+
 shockAmplitude : Float
 shockAmplitude =
     140
@@ -102,6 +106,10 @@ displacement cellCount shock ( column, row ) =
                 ( dx / distance * amplitude, dy / distance * amplitude )
 
 
+
+-- PULL
+
+
 pullAmplitude : Float
 pullAmplitude =
     20
@@ -137,6 +145,10 @@ pullOffset pull =
                 * sin (pullCycles * 2 * pi * phase)
                 * e
                 ^ negate (pullDamping * phase)
+
+
+
+-- DRIFT
 
 
 driftAmplitude : Float

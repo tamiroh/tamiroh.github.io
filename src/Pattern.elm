@@ -23,6 +23,10 @@ height =
     100
 
 
+
+-- GENERATE
+
+
 generator : Random.Generator Pattern
 generator =
     Random.uniform diagonalsGenerator [ wavesGenerator, ripplesGenerator ]
@@ -58,6 +62,10 @@ frequency =
 angle : Random.Generator Float
 angle =
     Random.float 0 (2 * pi)
+
+
+
+-- RENDER
 
 
 toRows : Pattern -> List String

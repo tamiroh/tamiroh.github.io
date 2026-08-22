@@ -143,14 +143,14 @@ update msg model =
         CellClicked cell ->
             case model.play of
                 Fresh ->
-                    ( struck cell model, Random.generate GameStarted (startGenerator cell) )
+                    ( startShock cell model, Random.generate GameStarted (startGenerator cell) )
 
                 Mines game ->
                     if Minesweeper.finished game then
                         ( model, Cmd.none )
 
                     else
-                        ( struck cell { model | play = Mines (Minesweeper.reveal cell game) }, Cmd.none )
+                        ( startShock cell { model | play = Mines (Minesweeper.reveal cell game) }, Cmd.none )
 
                 Discs othello ->
                     case Othello.play cell othello of
@@ -158,7 +158,7 @@ update msg model =
                             ( model, Cmd.none )
 
                         Just next ->
-                            ( struck cell { model | play = Discs next }, think next )
+                            ( startShock cell { model | play = Discs next }, think next )
 
         CordPulled ->
             ( { model | theme = toggle model.theme, pull = Just { elapsed = 0 } }, Cmd.none )
@@ -186,7 +186,7 @@ update msg model =
                 , shock = Motion.advance (Motion.shockLifetime Grid.count) delta model.shock
                 , pull = Motion.advance Motion.pullDuration delta model.pull
                 , boids = Boid.flock delta (field model.screen) model.pointer model.boids
-                , walked = model.walked + pace model * delta / 1000
+                , walked = model.walked + walkerPace model * delta / 1000
                 , eyes = List.filterMap (Eye.alive model.time model.pointer) model.eyes
               }
             , Cmd.none
@@ -235,8 +235,8 @@ update msg model =
                     ( { model | eyes = eye :: model.eyes }, Cmd.none )
 
 
-pace : Model -> Float
-pace model =
+walkerPace : Model -> Float
+walkerPace model =
     case model.pointer of
         Nothing ->
             walkerSpeed
@@ -303,8 +303,8 @@ over play =
             Othello.isOver othello
 
 
-struck : Cell -> Model -> Model
-struck cell model =
+startShock : Cell -> Model -> Model
+startShock cell model =
     { model | shock = Just { origin = cell, elapsed = 0 } }
 
 
@@ -320,7 +320,7 @@ view model =
         , patternLayer model.theme model.pattern
         , eyeLayer model.theme model.screen model.time model.eyes
         , boidLayer model.theme model.screen model.boids
-        , groundLayer model.theme model.screen model.walked (pace model / walkerSpeed)
+        , groundLayer model.theme model.screen model.walked (walkerPace model / walkerSpeed)
         , Html.div
             [ Attr.style "position" "fixed"
             , Attr.style "inset" "0"

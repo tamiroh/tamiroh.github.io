@@ -5,13 +5,16 @@ import Browser
 import Browser.Dom
 import Browser.Events
 import Geometry exposing (Position, Rect, Screen)
+import Grid exposing (Cell)
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events
 import Json.Decode
-import Minesweeper exposing (Cell, Game)
+import Minesweeper
 import Motion exposing (Pull, Shock)
+import Othello
 import Pattern exposing (Pattern)
+import Process
 import Random
 import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
@@ -39,7 +42,7 @@ main =
 
 
 type alias Model =
-    { game : Game
+    { play : Play
     , pattern : List String
     , shock : Maybe Shock
     , time : Float
@@ -53,7 +56,7 @@ type alias Model =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { game = Minesweeper.new
+    ( { play = Fresh
       , pattern = []
       , shock = Nothing
       , time = 0
@@ -74,9 +77,16 @@ init _ =
 -- UPDATE
 
 
+type Play
+    = Fresh
+    | Mines Minesweeper.Game
+    | Discs Othello.Board
+
+
 type Msg
     = Clicked Cell
-    | Started Cell Game
+    | Started Play
+    | Answered
     | PatternGenerated Pattern
     | Tick
     | Frame Float
@@ -108,17 +118,39 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Clicked cell ->
-            if Minesweeper.finished model.game then
-                ( model, Cmd.none )
+            case model.play of
+                Fresh ->
+                    ( struck cell model, Random.generate Started (startGenerator cell) )
 
-            else if Minesweeper.isReady model.game then
-                ( struck cell model, Random.generate (Started cell) (Minesweeper.start cell) )
+                Mines game ->
+                    if Minesweeper.finished game then
+                        ( model, Cmd.none )
 
-            else
-                ( struck cell { model | game = Minesweeper.reveal cell model.game }, Cmd.none )
+                    else
+                        ( struck cell { model | play = Mines (Minesweeper.reveal cell game) }, Cmd.none )
 
-        Started cell game ->
-            ( { model | game = Minesweeper.reveal cell game }, Cmd.none )
+                Discs othello ->
+                    case Othello.play cell othello of
+                        Nothing ->
+                            ( model, Cmd.none )
+
+                        Just next ->
+                            ( struck cell { model | play = Discs next }, think next )
+
+        Started play ->
+            ( { model | play = play }, Cmd.none )
+
+        Answered ->
+            case model.play of
+                Discs othello ->
+                    let
+                        next =
+                            Othello.respond othello
+                    in
+                    ( { model | play = Discs next }, think next )
+
+                _ ->
+                    ( model, Cmd.none )
 
         PatternGenerated pattern ->
             ( { model | pattern = Pattern.toRows (patternColumns model.screen) (patternRows model.screen) pattern }, Cmd.none )
@@ -129,7 +161,7 @@ update msg model =
         Frame delta ->
             ( { model
                 | time = model.time + delta
-                , shock = Motion.advance (Motion.shockLifetime Minesweeper.cellCount) delta model.shock
+                , shock = Motion.advance (Motion.shockLifetime Grid.count) delta model.shock
                 , pull = Motion.advance Motion.pullDuration delta model.pull
                 , boids = Boid.flock delta model.screen (obstacle model.screen) model.pointer model.boids
               }
@@ -159,6 +191,36 @@ update msg model =
 
         PointerMoved point ->
             ( { model | pointer = Just point }, Cmd.none )
+
+
+startGenerator : Cell -> Random.Generator Play
+startGenerator cell =
+    Random.uniform
+        (Random.map (\game -> Mines (Minesweeper.reveal cell game)) (Minesweeper.start cell))
+        [ Random.constant (Discs Othello.new) ]
+        |> Random.andThen identity
+
+
+think : Othello.Board -> Cmd Msg
+think othello =
+    if Othello.thinking othello then
+        Task.perform (\_ -> Answered) (Process.sleep thinkingDelay)
+
+    else
+        Cmd.none
+
+
+over : Play -> Bool
+over play =
+    case play of
+        Fresh ->
+            False
+
+        Mines game ->
+            Minesweeper.finished game
+
+        Discs othello ->
+            Othello.isOver othello
 
 
 struck : Cell -> Model -> Model
@@ -192,7 +254,7 @@ boardLayer : Model -> Html Msg
 boardLayer model =
     Html.div
         [ Attr.style "pointer-events"
-            (if Minesweeper.finished model.game then
+            (if over model.play then
                 "none"
 
              else
@@ -366,7 +428,7 @@ board model =
         , SvgAttr.viewBox ("0 0 " ++ String.fromFloat boardSize ++ " " ++ String.fromFloat boardSize)
         , SvgAttr.style "overflow: visible"
         ]
-        (List.concatMap (cellView model) Minesweeper.cells)
+        (List.concatMap (cellView model) Grid.cells)
 
 
 cellView : Model -> Cell -> List (Svg Msg)
@@ -376,13 +438,15 @@ cellView model cell =
             cell
 
         ( dx, dy ) =
-            Motion.offset Minesweeper.cellCount model.shock model.time cell
-
-        face =
-            Minesweeper.faceOf cell model.game
+            Motion.offset Grid.count model.shock model.time cell
 
         opened =
-            face /= Minesweeper.Hidden
+            case model.play of
+                Mines game ->
+                    Minesweeper.faceOf cell game /= Minesweeper.Hidden
+
+                _ ->
+                    False
 
         x =
             position column + gap / 2 + dx
@@ -409,12 +473,45 @@ cellView model cell =
         , Svg.Events.onClick (Clicked cell)
         ]
         []
-        :: (if opened then
-                marks model.lit face x y
+        :: cellMarks model cell x y
 
-            else
-                []
-           )
+
+cellMarks : Model -> Cell -> Float -> Float -> List (Svg msg)
+cellMarks model cell x y =
+    case model.play of
+        Fresh ->
+            []
+
+        Mines game ->
+            marks model.lit (Minesweeper.faceOf cell game) x y
+
+        Discs othello ->
+            case Othello.discAt cell othello of
+                Nothing ->
+                    []
+
+                Just side ->
+                    [ disc model.lit side x y ]
+
+
+disc : Bool -> Othello.Disc -> Float -> Float -> Svg msg
+disc lit side x y =
+    Svg.circle
+        [ SvgAttr.cx (String.fromFloat (x + cellSize / 2))
+        , SvgAttr.cy (String.fromFloat (y + cellSize / 2))
+        , SvgAttr.r (String.fromFloat discRadius)
+        , SvgAttr.fill
+            (case side of
+                Othello.Black ->
+                    ink lit
+
+                Othello.White ->
+                    paper lit
+            )
+        , SvgAttr.stroke (ink lit)
+        , SvgAttr.strokeWidth (String.fromFloat lineWidth)
+        ]
+        []
 
 
 marks : Bool -> Minesweeper.Face -> Float -> Float -> List (Svg msg)
@@ -475,7 +572,7 @@ margin =
 
 boardSize : Float
 boardSize =
-    spacing * toFloat Minesweeper.cellCount + margin * 2
+    spacing * toFloat Grid.count + margin * 2
 
 
 position : Int -> Float
@@ -574,6 +671,20 @@ pipCells count =
 
         _ ->
             []
+
+
+
+-- DISCS
+
+
+discRadius : Float
+discRadius =
+    cellSize * 0.34
+
+
+thinkingDelay : Float
+thinkingDelay =
+    420
 
 
 

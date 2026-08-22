@@ -1,9 +1,6 @@
 module Minesweeper exposing
-    ( Cell
-    , Face(..)
+    ( Face(..)
     , Game
-    , cellCount
-    , cells
     , faceOf
     , finished
     , isReady
@@ -12,16 +9,13 @@ module Minesweeper exposing
     , start
     )
 
+import Grid exposing (Cell)
 import Random
 import Set exposing (Set)
 
 
 
 -- GAME
-
-
-type alias Cell =
-    ( Int, Int )
 
 
 type Face
@@ -46,33 +40,9 @@ type Game
         }
 
 
-cellCount : Int
-cellCount =
-    8
-
-
 mineCount : Int
 mineCount =
     10
-
-
-cells : List Cell
-cells =
-    let
-        cellIndices =
-            List.range 0 (cellCount - 1)
-    in
-    List.concatMap (\column -> List.map (Tuple.pair column) cellIndices) cellIndices
-
-
-neighbors : Cell -> List Cell
-neighbors ( column, row ) =
-    List.concatMap
-        (\columnOffset ->
-            List.map (\rowOffset -> ( column + columnOffset, row + rowOffset )) [ -1, 0, 1 ]
-        )
-        [ -1, 0, 1 ]
-        |> List.filter (\cell -> cell /= ( column, row ) && List.member cell cells)
 
 
 
@@ -94,7 +64,7 @@ minesGenerator : Cell -> Random.Generator (Set Cell)
 minesGenerator safe =
     let
         candidates =
-            List.filter ((/=) safe) cells
+            List.filter ((/=) safe) Grid.cells
     in
     Random.list (List.length candidates) (Random.float 0 1)
         |> Random.map
@@ -114,7 +84,7 @@ minesGenerator safe =
 reveal : Cell -> Game -> Game
 reveal cell (Game game) =
     if Set.member cell game.mines then
-        Game { game | revealed = Set.fromList cells, status = Lost }
+        Game { game | revealed = Set.fromList Grid.cells, status = Lost }
 
     else
         let
@@ -125,7 +95,7 @@ reveal cell (Game game) =
             { game
                 | revealed = revealed
                 , status =
-                    if Set.size revealed + mineCount == List.length cells then
+                    if Set.size revealed + mineCount == List.length Grid.cells then
                         Won
 
                     else
@@ -139,7 +109,7 @@ spread mines cell revealed =
         revealed
 
     else if minesAround mines cell == 0 then
-        List.foldl (spread mines) (Set.insert cell revealed) (neighbors cell)
+        List.foldl (spread mines) (Set.insert cell revealed) (Grid.neighbours cell)
 
     else
         Set.insert cell revealed
@@ -189,4 +159,4 @@ faceOf cell (Game game) =
 
 minesAround : Set Cell -> Cell -> Int
 minesAround mines cell =
-    List.length (List.filter (\neighbor -> Set.member neighbor mines) (neighbors cell))
+    List.length (List.filter (\neighbor -> Set.member neighbor mines) (Grid.neighbours cell))

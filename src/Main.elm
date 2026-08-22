@@ -41,6 +41,22 @@ type Status
     | Won
 
 
+finished : Status -> Bool
+finished status =
+    case status of
+        Ready ->
+            False
+
+        Playing ->
+            False
+
+        Lost ->
+            True
+
+        Won ->
+            True
+
+
 type alias Shock =
     { origin : Cell
     , elapsed : Float
@@ -182,22 +198,6 @@ boardLayer model =
             )
         ]
         [ board model ]
-
-
-finished : Status -> Bool
-finished status =
-    case status of
-        Ready ->
-            False
-
-        Playing ->
-            False
-
-        Lost ->
-            True
-
-        Won ->
-            True
 
 
 patternLayer : List String -> Html msg

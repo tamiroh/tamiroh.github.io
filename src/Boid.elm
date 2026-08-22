@@ -1,5 +1,6 @@
-module Boid exposing (Boid, Field, flock, generator, wrapCopies)
+module Boid exposing (Boid, flock, generator, wrapCopies)
 
+import Field exposing (Field)
 import Geometry exposing (Position, Screen, Vector, wrap, wrapDelta)
 import Obstacle exposing (Obstacle)
 import Random
@@ -20,12 +21,6 @@ type alias Boid =
 radius : Float
 radius =
     5
-
-
-type alias Field =
-    { screen : Screen
-    , objects : List Obstacle
-    }
 
 
 
@@ -75,17 +70,12 @@ placeGenerator field attempts =
     Random.map2 Tuple.pair (Random.float 0 field.screen.width) (Random.float 0 field.screen.height)
         |> Random.andThen
             (\point ->
-                if attempts <= 0 || clearOf field.objects point then
+                if attempts <= 0 || Field.fits (clearance + radius) field point then
                     Random.constant (confine field point)
 
                 else
                     placeGenerator field (attempts - 1)
             )
-
-
-clearOf : List Obstacle -> Position -> Bool
-clearOf objects point =
-    List.all (\object -> not (Obstacle.contains (Obstacle.grow (clearance + radius) object) point)) objects
 
 
 

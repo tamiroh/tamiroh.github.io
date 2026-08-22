@@ -1,7 +1,7 @@
 module Eye exposing (Eye, alive, generator, view)
 
-import Geometry exposing (Position, Screen)
-import Obstacle exposing (Obstacle)
+import Field exposing (Field)
+import Geometry exposing (Position)
 import Random
 import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
@@ -60,8 +60,8 @@ tries =
     6
 
 
-generator : Screen -> List Obstacle -> Float -> Random.Generator (Maybe Eye)
-generator screen objects now =
+generator : Field -> Float -> Random.Generator (Maybe Eye)
+generator field now =
     Random.andThen
         (\roll ->
             if roll > chance then
@@ -74,33 +74,26 @@ generator screen objects now =
                             (\( x, y ) -> { x = x, y = y, born = now, life = life, shut = Nothing })
                             place
                     )
-                    (spot screen objects tries)
+                    (spot field tries)
                     (Random.float 2400 4600)
         )
         (Random.float 0 1)
 
 
-spot : Screen -> List Obstacle -> Int -> Random.Generator (Maybe Position)
-spot screen objects attempts =
-    Random.map2 Tuple.pair (Random.float 0 screen.width) (Random.float 0 screen.height)
+spot : Field -> Int -> Random.Generator (Maybe Position)
+spot field attempts =
+    Random.map2 Tuple.pair (Random.float 0 field.screen.width) (Random.float 0 field.screen.height)
         |> Random.andThen
             (\point ->
-                if clearOf objects point then
+                if Field.fits (span / 2) field point then
                     Random.constant (Just point)
 
                 else if attempts <= 0 then
                     Random.constant Nothing
 
                 else
-                    spot screen objects (attempts - 1)
+                    spot field (attempts - 1)
             )
-
-
-clearOf : List Obstacle -> Position -> Bool
-clearOf objects point =
-    List.all
-        (\object -> not (Obstacle.contains (Obstacle.grow (span / 2) object) point))
-        objects
 
 
 alive : Float -> Maybe Position -> Eye -> Maybe Eye

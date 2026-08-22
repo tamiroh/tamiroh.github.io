@@ -8,6 +8,7 @@ import Browser.Events
 import Cord
 import Cursor
 import Eye exposing (Eye)
+import Field exposing (Field)
 import Geometry exposing (Position, Screen, Vector, wrap, wrapDelta)
 import Grid exposing (Cell)
 import Html exposing (Html)
@@ -181,7 +182,7 @@ update msg model =
             ( model
             , Cmd.batch
                 [ Random.generate PatternGenerated Pattern.generator
-                , Random.generate EyeOpened (Eye.generator model.screen (field model.screen).objects model.time)
+                , Random.generate EyeOpened (Eye.generator (field model.screen) model.time)
                 ]
             )
 
@@ -694,7 +695,7 @@ position index =
     margin + spacing * toFloat index
 
 
-field : Screen -> Boid.Field
+field : Screen -> Field
 field screen =
     { screen = screen
     , objects =

@@ -996,6 +996,11 @@ eyeBlink =
     110
 
 
+eyeAttempts : Int
+eyeAttempts =
+    6
+
+
 eyeGenerator : Screen -> Float -> Random.Generator (Maybe Eye)
 eyeGenerator screen now =
     Random.andThen
@@ -1004,15 +1009,39 @@ eyeGenerator screen now =
                 Random.constant Nothing
 
             else
-                Random.map Just
-                    (Random.map3
-                        (\x y life -> { x = x, y = y, born = now, life = life, shut = Nothing })
-                        (Random.float 0 screen.width)
-                        (Random.float 0 screen.height)
-                        (Random.float 2400 4600)
+                Random.map2
+                    (\spot life ->
+                        Maybe.map
+                            (\( x, y ) -> { x = x, y = y, born = now, life = life, shut = Nothing })
+                            spot
                     )
+                    (eyeSpot screen eyeAttempts)
+                    (Random.float 2400 4600)
         )
         (Random.float 0 1)
+
+
+eyeSpot : Screen -> Int -> Random.Generator (Maybe Position)
+eyeSpot screen attempts =
+    Random.map2 Tuple.pair (Random.float 0 screen.width) (Random.float 0 screen.height)
+        |> Random.andThen
+            (\point ->
+                if clearOfObjects screen point then
+                    Random.constant (Just point)
+
+                else if attempts <= 0 then
+                    Random.constant Nothing
+
+                else
+                    eyeSpot screen (attempts - 1)
+            )
+
+
+clearOfObjects : Screen -> Position -> Bool
+clearOfObjects screen point =
+    List.all
+        (\object -> not (Obstacle.contains (Obstacle.grow (eyeSpan / 2) object) point))
+        (field screen).objects
 
 
 aperture : Float -> Eye -> Float

@@ -7,10 +7,10 @@ import Browser.Events
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events
+import Minesweeper exposing (Cell, Game)
 import Motion exposing (Pull, Shock)
 import Pattern exposing (Pattern)
 import Random
-import Set exposing (Set)
 import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
 import Svg.Events
@@ -36,33 +36,6 @@ main =
 -- MODEL
 
 
-type alias Cell =
-    ( Int, Int )
-
-
-type Status
-    = Ready
-    | Playing
-    | Lost
-    | Won
-
-
-finished : Status -> Bool
-finished status =
-    case status of
-        Ready ->
-            False
-
-        Playing ->
-            False
-
-        Lost ->
-            True
-
-        Won ->
-            True
-
-
 type alias Screen =
     { width : Float
     , height : Float
@@ -70,9 +43,7 @@ type alias Screen =
 
 
 type alias Model =
-    { mines : Set Cell
-    , revealed : Set Cell
-    , status : Status
+    { game : Game
     , pattern : List String
     , shock : Maybe Shock
     , time : Float
@@ -85,9 +56,7 @@ type alias Model =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { mines = Set.empty
-      , revealed = Set.empty
-      , status = Ready
+    ( { game = Minesweeper.new
       , pattern = []
       , shock = Nothing
       , time = 0
@@ -109,7 +78,7 @@ init _ =
 
 type Msg
     = Clicked Cell
-    | MinesPlaced Cell (Set Cell)
+    | Started Cell Game
     | PatternGenerated Pattern
     | Tick
     | Frame Float
@@ -132,21 +101,17 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Clicked cell ->
-            case model.status of
-                Ready ->
-                    ( struck cell model, Random.generate (MinesPlaced cell) (mineGenerator cell) )
+            if Minesweeper.finished model.game then
+                ( model, Cmd.none )
 
-                Playing ->
-                    ( reveal cell (struck cell model), Cmd.none )
+            else if Minesweeper.isReady model.game then
+                ( struck cell model, Random.generate (Started cell) (Minesweeper.start cell) )
 
-                Lost ->
-                    ( model, Cmd.none )
+            else
+                ( struck cell { model | game = Minesweeper.reveal cell model.game }, Cmd.none )
 
-                Won ->
-                    ( model, Cmd.none )
-
-        MinesPlaced cell mines ->
-            ( reveal cell { model | mines = mines, status = Playing }, Cmd.none )
+        Started cell game ->
+            ( { model | game = Minesweeper.reveal cell game }, Cmd.none )
 
         PatternGenerated pattern ->
             ( { model | pattern = Pattern.toRows pattern }, Cmd.none )
@@ -157,7 +122,7 @@ update msg model =
         Frame delta ->
             ( { model
                 | time = model.time + delta
-                , shock = Motion.advance (Motion.shockLifetime cellCount) delta model.shock
+                , shock = Motion.advance (Motion.shockLifetime Minesweeper.cellCount) delta model.shock
                 , pull = Motion.advance Motion.pullDuration delta model.pull
                 , boids = Boid.flock delta model.screen (obstacle model.screen) model.boids
               }
@@ -213,14 +178,14 @@ boardLayer model =
     Html.div
         [ Attr.style "transition" "opacity 1.2s ease-out"
         , Attr.style "opacity"
-            (if finished model.status then
+            (if Minesweeper.finished model.game then
                 "0"
 
              else
                 "1"
             )
         , Attr.style "pointer-events"
-            (if finished model.status then
+            (if Minesweeper.finished model.game then
                 "none"
 
              else
@@ -339,7 +304,7 @@ board model =
         , SvgAttr.viewBox ("0 0 " ++ String.fromFloat boardSize ++ " " ++ String.fromFloat boardSize)
         , SvgAttr.style "overflow: visible"
         ]
-        (List.concatMap (cellView model) cells)
+        (List.concatMap (cellView model) Minesweeper.cells)
 
 
 cellView : Model -> Cell -> List (Svg Msg)
@@ -349,10 +314,10 @@ cellView model cell =
             cell
 
         ( dx, dy ) =
-            Motion.offset cellCount model.shock model.time cell
+            Motion.offset Minesweeper.cellCount model.shock model.time cell
 
         opened =
-            Set.member cell model.revealed
+            Minesweeper.isRevealed cell model.game
 
         x =
             position column + gap / 2 + dx
@@ -389,7 +354,7 @@ cellView model cell =
 
 pips : Model -> Cell -> Float -> Float -> List (Svg msg)
 pips model cell x y =
-    List.map (pip model.lit x y) (pipCells (adjacentMines model.mines cell))
+    List.map (pip model.lit x y) (pipCells (Minesweeper.adjacentMines cell model.game))
 
 
 pip : Bool -> Float -> Float -> ( Int, Int ) -> Svg msg
@@ -404,86 +369,7 @@ pip lit x y ( column, row ) =
 
 
 
--- RULES
-
-
-mineCount : Int
-mineCount =
-    10
-
-
-mineGenerator : Cell -> Random.Generator (Set Cell)
-mineGenerator safe =
-    let
-        candidates =
-            List.filter ((/=) safe) cells
-    in
-    Random.list (List.length candidates) (Random.float 0 1)
-        |> Random.map
-            (\keys ->
-                List.map2 Tuple.pair keys candidates
-                    |> List.sortBy Tuple.first
-                    |> List.take mineCount
-                    |> List.map Tuple.second
-                    |> Set.fromList
-            )
-
-
-reveal : Cell -> Model -> Model
-reveal cell model =
-    if Set.member cell model.mines then
-        { model | status = Lost }
-
-    else
-        let
-            revealed =
-                spread model.mines cell model.revealed
-        in
-        { model
-            | revealed = revealed
-            , status =
-                if Set.size revealed + mineCount == List.length cells then
-                    Won
-
-                else
-                    Playing
-        }
-
-
-spread : Set Cell -> Cell -> Set Cell -> Set Cell
-spread mines cell revealed =
-    if Set.member cell revealed then
-        revealed
-
-    else if adjacentMines mines cell == 0 then
-        List.foldl (spread mines) (Set.insert cell revealed) (neighbors cell)
-
-    else
-        Set.insert cell revealed
-
-
-adjacentMines : Set Cell -> Cell -> Int
-adjacentMines mines cell =
-    List.length (List.filter (\neighbor -> Set.member neighbor mines) (neighbors cell))
-
-
-neighbors : Cell -> List Cell
-neighbors ( column, row ) =
-    List.concatMap
-        (\columnOffset ->
-            List.map (\rowOffset -> ( column + columnOffset, row + rowOffset )) [ -1, 0, 1 ]
-        )
-        [ -1, 0, 1 ]
-        |> List.filter (\cell -> cell /= ( column, row ) && List.member cell cells)
-
-
-
 -- LAYOUT
-
-
-cellCount : Int
-cellCount =
-    8
 
 
 spacing : Float
@@ -508,16 +394,7 @@ margin =
 
 boardSize : Float
 boardSize =
-    spacing * toFloat cellCount + margin * 2
-
-
-cells : List Cell
-cells =
-    let
-        cellIndices =
-            List.range 0 (cellCount - 1)
-    in
-    List.concatMap (\column -> List.map (Tuple.pair column) cellIndices) cellIndices
+    spacing * toFloat Minesweeper.cellCount + margin * 2
 
 
 obstacle : Screen -> Rect

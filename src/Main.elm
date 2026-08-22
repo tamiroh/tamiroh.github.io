@@ -387,7 +387,7 @@ spacing =
 
 gap : Float
 gap =
-    6
+    9
 
 
 cellSize : Float

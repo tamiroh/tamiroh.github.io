@@ -1,11 +1,14 @@
 module Main exposing (main)
 
+import Boid exposing (Boid, Rect)
 import Browser
 import Browser.Dom
 import Browser.Events
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events
+import Motion exposing (Pull, Shock)
+import Pattern exposing (Pattern)
 import Random
 import Set exposing (Set)
 import Svg exposing (Svg)
@@ -60,27 +63,9 @@ finished status =
             True
 
 
-type alias Shock =
-    { origin : Cell
-    , elapsed : Float
-    }
-
-
-type alias Pull =
-    { elapsed : Float }
-
-
 type alias Screen =
     { width : Float
     , height : Float
-    }
-
-
-type alias Boid =
-    { x : Float
-    , y : Float
-    , vx : Float
-    , vy : Float
     }
 
 
@@ -112,7 +97,7 @@ init _ =
       , boids = []
       }
     , Cmd.batch
-        [ Random.generate PatternGenerated patternGenerator
+        [ Random.generate PatternGenerated Pattern.generator
         , Task.perform GotViewport Browser.Dom.getViewport
         ]
     )
@@ -164,17 +149,17 @@ update msg model =
             ( reveal cell { model | mines = mines, status = Playing }, Cmd.none )
 
         PatternGenerated pattern ->
-            ( { model | pattern = patternRows pattern }, Cmd.none )
+            ( { model | pattern = Pattern.toRows pattern }, Cmd.none )
 
         Tick ->
-            ( model, Random.generate PatternGenerated patternGenerator )
+            ( model, Random.generate PatternGenerated Pattern.generator )
 
         Frame delta ->
             ( { model
                 | time = model.time + delta
-                , shock = advance shockLifetime delta model.shock
-                , pull = advance pullDuration delta model.pull
-                , boids = flock delta model
+                , shock = Motion.advance (Motion.shockLifetime cellCount) delta model.shock
+                , pull = Motion.advance Motion.pullDuration delta model.pull
+                , boids = Boid.flock delta model.screen (obstacle model.screen) model.boids
               }
             , Cmd.none
             )
@@ -187,7 +172,7 @@ update msg model =
                 screen =
                     { width = viewport.viewport.width, height = viewport.viewport.height }
             in
-            ( { model | screen = screen }, Random.generate BoidsPlaced (boidsGenerator screen) )
+            ( { model | screen = screen }, Random.generate BoidsPlaced (Boid.generator screen (obstacle screen)) )
 
         Resized width height ->
             ( { model | screen = { width = toFloat width, height = toFloat height } }, Cmd.none )
@@ -199,24 +184,6 @@ update msg model =
 struck : Cell -> Model -> Model
 struck cell model =
     { model | shock = Just { origin = cell, elapsed = 0 } }
-
-
-advance : Float -> Float -> Maybe { a | elapsed : Float } -> Maybe { a | elapsed : Float }
-advance lifetime delta timer =
-    case timer of
-        Nothing ->
-            Nothing
-
-        Just current ->
-            let
-                elapsed =
-                    current.elapsed + delta
-            in
-            if elapsed > lifetime then
-                Nothing
-
-            else
-                Just { current | elapsed = elapsed }
 
 
 
@@ -237,7 +204,7 @@ view model =
             , Attr.style "min-height" "100vh"
             ]
             [ boardLayer model ]
-        , cordLayer model.lit (pullOffset model.pull)
+        , cordLayer model.lit (Motion.pullOffset model.pull)
         ]
 
 
@@ -331,7 +298,7 @@ boidLayer lit screen boids =
 
 boidView : Bool -> Screen -> Boid -> List (Svg msg)
 boidView lit screen boid =
-    List.map (dot lit) (wrapCopies screen boid)
+    List.map (dot lit) (Boid.wrapCopies screen boid)
 
 
 dot : Bool -> ( Float, Float ) -> Svg msg
@@ -339,7 +306,7 @@ dot lit ( x, y ) =
     Svg.circle
         [ SvgAttr.cx (String.fromFloat x)
         , SvgAttr.cy (String.fromFloat y)
-        , SvgAttr.r (String.fromFloat boidRadius)
+        , SvgAttr.r (String.fromFloat Boid.radius)
         , SvgAttr.fill (paper lit)
         , SvgAttr.stroke (ink lit)
         , SvgAttr.strokeWidth (String.fromFloat lineWidth)
@@ -382,7 +349,7 @@ cellView model cell =
             cell
 
         ( dx, dy ) =
-            offset model cell
+            Motion.offset cellCount model.shock model.time cell
 
         opened =
             Set.member cell model.revealed
@@ -553,6 +520,15 @@ cells =
     List.concatMap (\column -> List.map (Tuple.pair column) cellIndices) cellIndices
 
 
+obstacle : Screen -> Rect
+obstacle screen =
+    { left = screen.width / 2 - boardSize / 2
+    , top = screen.height / 2 - boardSize / 2
+    , right = screen.width / 2 + boardSize / 2
+    , bottom = screen.height / 2 + boardSize / 2
+    }
+
+
 position : Int -> Float
 position index =
     margin + spacing * toFloat index
@@ -668,712 +644,3 @@ patternInk lit =
 
     else
         "#111111"
-
-
-
--- MOTION
-
-
-offset : Model -> Cell -> ( Float, Float )
-offset model cell =
-    let
-        ( shockX, shockY ) =
-            displacement model.shock cell
-
-        ( driftX, driftY ) =
-            drift model.time cell
-    in
-    ( shockX + driftX, shockY + driftY )
-
-
-shockAmplitude : Float
-shockAmplitude =
-    140
-
-
-shockDuration : Float
-shockDuration =
-    700
-
-
-shockDelay : Float
-shockDelay =
-    65
-
-
-shockLifetime : Float
-shockLifetime =
-    shockDuration + shockDelay * maxDistance
-
-
-maxDistance : Float
-maxDistance =
-    sqrt 2 * toFloat (cellCount - 1)
-
-
-displacement : Maybe Shock -> Cell -> ( Float, Float )
-displacement shock ( column, row ) =
-    case shock of
-        Nothing ->
-            ( 0, 0 )
-
-        Just { origin, elapsed } ->
-            let
-                ( originColumn, originRow ) =
-                    origin
-
-                dx =
-                    toFloat (column - originColumn)
-
-                dy =
-                    toFloat (row - originRow)
-
-                distance =
-                    sqrt (dx * dx + dy * dy)
-
-                local =
-                    elapsed - distance * shockDelay
-            in
-            if distance == 0 || local <= 0 || local >= shockDuration then
-                ( 0, 0 )
-
-            else
-                let
-                    amplitude =
-                        shockAmplitude * sin (pi * local / shockDuration) * (distance / maxDistance) ^ 2
-                in
-                ( dx / distance * amplitude, dy / distance * amplitude )
-
-
-pullAmplitude : Float
-pullAmplitude =
-    20
-
-
-pullDuration : Float
-pullDuration =
-    600
-
-
-pullCycles : Float
-pullCycles =
-    1.25
-
-
-pullDamping : Float
-pullDamping =
-    4
-
-
-pullOffset : Maybe Pull -> Float
-pullOffset pull =
-    case pull of
-        Nothing ->
-            0
-
-        Just { elapsed } ->
-            let
-                phase =
-                    elapsed / pullDuration
-            in
-            pullAmplitude
-                * sin (pullCycles * 2 * pi * phase)
-                * e
-                ^ negate (pullDamping * phase)
-
-
-driftAmplitude : Float
-driftAmplitude =
-    1.2
-
-
-drift : Float -> Cell -> ( Float, Float )
-drift time ( column, row ) =
-    let
-        seconds =
-            time / 1000
-
-        seed =
-            toFloat (column * 3 + row * 5)
-    in
-    ( wobble seconds seed 1.3 2.7
-    , wobble seconds (seed * 1.7 + 2.1) 1.1 2.3
-    )
-
-
-wobble : Float -> Float -> Float -> Float -> Float
-wobble seconds seed slow fast =
-    driftAmplitude * (sin (seconds * slow + seed) + 0.5 * sin (seconds * fast + seed * 1.9))
-
-
-
--- BOIDS
-
-
-boidRadius : Float
-boidRadius =
-    5
-
-
-boidVision : Float
-boidVision =
-    60
-
-
-boidPersonalSpace : Float
-boidPersonalSpace =
-    30
-
-
-boidSlowest : Float
-boidSlowest =
-    1.1
-
-
-boidFastest : Float
-boidFastest =
-    2.2
-
-
-separationWeight : Float
-separationWeight =
-    0.5
-
-
-alignmentWeight : Float
-alignmentWeight =
-    0.06
-
-
-cohesionWeight : Float
-cohesionWeight =
-    0.004
-
-
-avoidWeight : Float
-avoidWeight =
-    1.6
-
-
-boardClearance : Float
-boardClearance =
-    34
-
-
-areaPerBoid : Float
-areaPerBoid =
-    16000
-
-
-seedAttempts : Int
-seedAttempts =
-    8
-
-
-frameMillis : Float
-frameMillis =
-    1000 / 60
-
-
-type alias Rect =
-    { left : Float
-    , top : Float
-    , right : Float
-    , bottom : Float
-    }
-
-
-type Side
-    = Left
-    | Right
-    | Top
-    | Bottom
-
-
-type alias Neighbor =
-    { boid : Boid
-    , dx : Float
-    , dy : Float
-    , apart : Float
-    }
-
-
-roomy : Screen -> Bool
-roomy screen =
-    screen.width > boardSize || screen.height > boardSize
-
-
-boidCount : Screen -> Int
-boidCount screen =
-    let
-        free =
-            screen.width * screen.height - min screen.width boardSize * min screen.height boardSize
-    in
-    clamp 6 24 (round (free / areaPerBoid))
-
-
-boidsGenerator : Screen -> Random.Generator (List Boid)
-boidsGenerator screen =
-    Random.list (boidCount screen) (boidGenerator screen)
-
-
-boidGenerator : Screen -> Random.Generator Boid
-boidGenerator screen =
-    Random.map2
-        (\( x, y ) heading ->
-            { x = x
-            , y = y
-            , vx = cos heading * boidSlowest
-            , vy = sin heading * boidSlowest
-            }
-        )
-        (placeGenerator screen seedAttempts)
-        (Random.float 0 (2 * pi))
-
-
-placeGenerator : Screen -> Int -> Random.Generator ( Float, Float )
-placeGenerator screen attempts =
-    Random.map2 Tuple.pair (Random.float 0 screen.width) (Random.float 0 screen.height)
-        |> Random.andThen
-            (\point ->
-                if attempts <= 0 || clearOfBoard screen point then
-                    Random.constant (confine screen point)
-
-                else
-                    placeGenerator screen (attempts - 1)
-            )
-
-
-clearOfBoard : Screen -> ( Float, Float ) -> Bool
-clearOfBoard screen ( x, y ) =
-    let
-        rect =
-            boardRect screen
-
-        reach =
-            boardClearance + boidRadius
-    in
-    not (x > rect.left - reach && x < rect.right + reach && y > rect.top - reach && y < rect.bottom + reach)
-
-
-flock : Float -> Model -> List Boid
-flock delta model =
-    if roomy model.screen then
-        List.map (steer (min 2 (delta / frameMillis)) model) model.boids
-
-    else
-        model.boids
-
-
-steer : Float -> Model -> Boid -> Boid
-steer dt model boid =
-    let
-        near =
-            neighborsOf model.screen boid model.boids
-
-        ( sx, sy ) =
-            separation near
-
-        ( ax, ay ) =
-            alignment boid near
-
-        ( hx, hy ) =
-            cohesion near
-
-        ( bx, by ) =
-            avoidBoard model.screen boid
-
-        ( vx, vy ) =
-            clampSpeed
-                ( boid.vx + (sx * separationWeight + ax * alignmentWeight + hx * cohesionWeight + bx * avoidWeight) * dt
-                , boid.vy + (sy * separationWeight + ay * alignmentWeight + hy * cohesionWeight + by * avoidWeight) * dt
-                )
-
-        ( x, y ) =
-            confine model.screen ( boid.x + vx * dt, boid.y + vy * dt )
-    in
-    { x = x, y = y, vx = vx, vy = vy }
-
-
-neighborsOf : Screen -> Boid -> List Boid -> List Neighbor
-neighborsOf screen boid boids =
-    List.filterMap
-        (\other ->
-            let
-                dx =
-                    wrapDelta screen.width (boid.x - other.x)
-
-                dy =
-                    wrapDelta screen.height (boid.y - other.y)
-
-                apart =
-                    sqrt (dx * dx + dy * dy)
-            in
-            if apart > 0 && apart <= boidVision then
-                Just { boid = other, dx = dx, dy = dy, apart = apart }
-
-            else
-                Nothing
-        )
-        boids
-
-
-wrapDelta : Float -> Float -> Float
-wrapDelta span value =
-    if value > span / 2 then
-        value - span
-
-    else if value < negate (span / 2) then
-        value + span
-
-    else
-        value
-
-
-separation : List Neighbor -> ( Float, Float )
-separation near =
-    let
-        crowd =
-            List.filter (\other -> other.apart < boidPersonalSpace) near
-    in
-    List.foldl
-        (\other ( ax, ay ) ->
-            let
-                push =
-                    1 - other.apart / boidPersonalSpace
-            in
-            ( ax + other.dx / other.apart * push, ay + other.dy / other.apart * push )
-        )
-        ( 0, 0 )
-        crowd
-        |> average (List.length crowd)
-
-
-alignment : Boid -> List Neighbor -> ( Float, Float )
-alignment boid near =
-    if List.isEmpty near then
-        ( 0, 0 )
-
-    else
-        let
-            ( ax, ay ) =
-                List.foldl (\other ( sx, sy ) -> ( sx + other.boid.vx, sy + other.boid.vy )) ( 0, 0 ) near
-                    |> average (List.length near)
-        in
-        ( ax - boid.vx, ay - boid.vy )
-
-
-cohesion : List Neighbor -> ( Float, Float )
-cohesion near =
-    let
-        ( hx, hy ) =
-            List.foldl (\other ( sx, sy ) -> ( sx + other.dx, sy + other.dy )) ( 0, 0 ) near
-                |> average (List.length near)
-    in
-    ( negate hx, negate hy )
-
-
-average : Int -> ( Float, Float ) -> ( Float, Float )
-average count ( x, y ) =
-    if count == 0 then
-        ( 0, 0 )
-
-    else
-        ( x / toFloat count, y / toFloat count )
-
-
-normalize : ( Float, Float ) -> ( Float, Float )
-normalize ( x, y ) =
-    let
-        length =
-            sqrt (x * x + y * y)
-    in
-    if length == 0 then
-        ( 0, 0 )
-
-    else
-        ( x / length, y / length )
-
-
-boardRect : Screen -> Rect
-boardRect screen =
-    { left = screen.width / 2 - boardSize / 2
-    , top = screen.height / 2 - boardSize / 2
-    , right = screen.width / 2 + boardSize / 2
-    , bottom = screen.height / 2 + boardSize / 2
-    }
-
-
-grownBoardRect : Screen -> Rect
-grownBoardRect screen =
-    let
-        rect =
-            boardRect screen
-    in
-    { left = rect.left - boidRadius
-    , top = rect.top - boidRadius
-    , right = rect.right + boidRadius
-    , bottom = rect.bottom + boidRadius
-    }
-
-
-avoidBoard : Screen -> Boid -> ( Float, Float )
-avoidBoard screen boid =
-    let
-        rect =
-            boardRect screen
-
-        dx =
-            boid.x - clamp rect.left rect.right boid.x
-
-        dy =
-            boid.y - clamp rect.top rect.bottom boid.y
-
-        apart =
-            sqrt (dx * dx + dy * dy)
-
-        reach =
-            boardClearance + boidRadius
-    in
-    if apart >= reach then
-        ( 0, 0 )
-
-    else if apart == 0 then
-        case nearestExit screen rect boid.x boid.y of
-            Just Left ->
-                ( -1, 0 )
-
-            Just Right ->
-                ( 1, 0 )
-
-            Just Top ->
-                ( 0, -1 )
-
-            Just Bottom ->
-                ( 0, 1 )
-
-            Nothing ->
-                ( 0, 0 )
-
-    else
-        let
-            ( ux, uy ) =
-                normalize ( dx, dy )
-
-            push =
-                1 - apart / reach
-        in
-        ( ux * push, uy * push )
-
-
-nearestExit : Screen -> Rect -> Float -> Float -> Maybe Side
-nearestExit screen rect x y =
-    let
-        sideways =
-            if rect.right - rect.left < screen.width then
-                [ ( x - rect.left, Left ), ( rect.right - x, Right ) ]
-
-            else
-                []
-
-        upright =
-            if rect.bottom - rect.top < screen.height then
-                [ ( y - rect.top, Top ), ( rect.bottom - y, Bottom ) ]
-
-            else
-                []
-    in
-    List.sortBy Tuple.first (sideways ++ upright)
-        |> List.head
-        |> Maybe.map Tuple.second
-
-
-clampSpeed : ( Float, Float ) -> ( Float, Float )
-clampSpeed ( vx, vy ) =
-    let
-        speed =
-            sqrt (vx * vx + vy * vy)
-    in
-    if speed > boidFastest then
-        ( vx / speed * boidFastest, vy / speed * boidFastest )
-
-    else if speed > 0 && speed < boidSlowest then
-        ( vx / speed * boidSlowest, vy / speed * boidSlowest )
-
-    else
-        ( vx, vy )
-
-
-confine : Screen -> ( Float, Float ) -> ( Float, Float )
-confine screen point =
-    let
-        ( x, y ) =
-            pushOutOfBoard screen point
-    in
-    ( wrap screen.width x, wrap screen.height y )
-
-
-wrap : Float -> Float -> Float
-wrap span value =
-    if span <= 0 then
-        value
-
-    else
-        value - span * toFloat (floor (value / span))
-
-
-pushOutOfBoard : Screen -> ( Float, Float ) -> ( Float, Float )
-pushOutOfBoard screen ( x, y ) =
-    let
-        rect =
-            grownBoardRect screen
-    in
-    if x > rect.left && x < rect.right && y > rect.top && y < rect.bottom then
-        case nearestExit screen rect x y of
-            Just Left ->
-                ( rect.left, y )
-
-            Just Right ->
-                ( rect.right, y )
-
-            Just Top ->
-                ( x, rect.top )
-
-            Just Bottom ->
-                ( x, rect.bottom )
-
-            Nothing ->
-                ( x, y )
-
-    else
-        ( x, y )
-
-
-wrapCopies : Screen -> Boid -> List ( Float, Float )
-wrapCopies screen boid =
-    let
-        xs =
-            boid.x :: mirror screen.width boid.x
-
-        ys =
-            boid.y :: mirror screen.height boid.y
-    in
-    List.concatMap (\x -> List.map (Tuple.pair x) ys) xs
-
-
-mirror : Float -> Float -> List Float
-mirror span value =
-    if value < boidRadius then
-        [ value + span ]
-
-    else if value > span - boidRadius then
-        [ value - span ]
-
-    else
-        []
-
-
-
--- PATTERN
-
-
-type Pattern
-    = Diagonals { phase : Float }
-    | Waves { fx : Float, fy : Float, phase : Float }
-    | Ripples { fx : Float, cx : Float, cy : Float }
-
-
-patternWidth : Int
-patternWidth =
-    240
-
-
-patternHeight : Int
-patternHeight =
-    100
-
-
-patternGenerator : Random.Generator Pattern
-patternGenerator =
-    Random.uniform diagonalsGenerator [ wavesGenerator, ripplesGenerator ]
-        |> Random.andThen identity
-
-
-diagonalsGenerator : Random.Generator Pattern
-diagonalsGenerator =
-    Random.map (\phase -> Diagonals { phase = phase }) angle
-
-
-wavesGenerator : Random.Generator Pattern
-wavesGenerator =
-    Random.map3 (\fx fy phase -> Waves { fx = fx, fy = fy, phase = phase })
-        frequency
-        frequency
-        angle
-
-
-ripplesGenerator : Random.Generator Pattern
-ripplesGenerator =
-    Random.map3 (\fx cx cy -> Ripples { fx = fx, cx = cx, cy = cy })
-        frequency
-        (Random.float 0 1)
-        (Random.float 0 1)
-
-
-frequency : Random.Generator Float
-frequency =
-    Random.float 0.1 0.6
-
-
-angle : Random.Generator Float
-angle =
-    Random.float 0 (2 * pi)
-
-
-patternRows : Pattern -> List String
-patternRows pattern =
-    List.map
-        (\y -> String.concat (List.map (\x -> patternChar pattern x y) (List.range 0 (patternWidth - 1))))
-        (List.range 0 (patternHeight - 1))
-
-
-patternChar : Pattern -> Int -> Int -> String
-patternChar pattern x y =
-    case pattern of
-        Diagonals { phase } ->
-            if noise phase x y < 0.5 then
-                "/"
-
-            else
-                "\\"
-
-        Waves { fx, fy, phase } ->
-            ramp (sin (toFloat x * fx + phase) + sin (toFloat y * 2 * fy))
-
-        Ripples { fx, cx, cy } ->
-            let
-                dx =
-                    toFloat x - cx * toFloat patternWidth
-
-                dy =
-                    (toFloat y - cy * toFloat patternHeight) * 2
-            in
-            ramp (2 * sin (sqrt (dx * dx + dy * dy) * fx))
-
-
-ramp : Float -> String
-ramp value =
-    let
-        index =
-            clamp 0 9 (floor ((value + 2) / 4 * 9))
-    in
-    String.slice index (index + 1) " .:-=+*#%@"
-
-
-noise : Float -> Int -> Int -> Float
-noise phase x y =
-    let
-        value =
-            sin (toFloat x * 12.9898 + toFloat y * 78.233 + phase) * 43758.5453
-    in
-    value - toFloat (floor value)

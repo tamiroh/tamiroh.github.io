@@ -60,6 +60,16 @@ avoidWeight =
     1.6
 
 
+fleeWeight : Float
+fleeWeight =
+    3
+
+
+fleeRange : Float
+fleeRange =
+    120
+
+
 boardClearance : Float
 boardClearance =
     34
@@ -165,17 +175,17 @@ clearOf rect ( x, y ) =
     not (x > rect.left - reach && x < rect.right + reach && y > rect.top - reach && y < rect.bottom + reach)
 
 
-flock : Float -> Extent -> Rect -> List Boid -> List Boid
-flock delta screen rect boids =
+flock : Float -> Extent -> Rect -> Maybe ( Float, Float ) -> List Boid -> List Boid
+flock delta screen rect pointer boids =
     if roomy screen rect then
-        List.map (steer (min 2 (delta / frameMillis)) screen rect boids) boids
+        List.map (steer (min 2 (delta / frameMillis)) screen rect pointer boids) boids
 
     else
         boids
 
 
-steer : Float -> Extent -> Rect -> List Boid -> Boid -> Boid
-steer dt screen rect boids boid =
+steer : Float -> Extent -> Rect -> Maybe ( Float, Float ) -> List Boid -> Boid -> Boid
+steer dt screen rect pointer boids boid =
     let
         near =
             neighborsOf screen boid boids
@@ -192,10 +202,13 @@ steer dt screen rect boids boid =
         ( bx, by ) =
             avoid screen rect boid
 
+        ( fx, fy ) =
+            flee screen pointer boid
+
         ( vx, vy ) =
             clampSpeed
-                ( boid.vx + (sx * separationWeight + ax * alignmentWeight + hx * cohesionWeight + bx * avoidWeight) * dt
-                , boid.vy + (sy * separationWeight + ay * alignmentWeight + hy * cohesionWeight + by * avoidWeight) * dt
+                ( boid.vx + (sx * separationWeight + ax * alignmentWeight + hx * cohesionWeight + bx * avoidWeight + fx * fleeWeight) * dt
+                , boid.vy + (sy * separationWeight + ay * alignmentWeight + hy * cohesionWeight + by * avoidWeight + fy * fleeWeight) * dt
                 )
 
         ( x, y ) =
@@ -357,6 +370,37 @@ avoid screen rect boid =
                 1 - apart / reach
         in
         ( ux * push, uy * push )
+
+
+flee : Extent -> Maybe ( Float, Float ) -> Boid -> ( Float, Float )
+flee screen pointer boid =
+    case pointer of
+        Nothing ->
+            ( 0, 0 )
+
+        Just ( x, y ) ->
+            let
+                dx =
+                    wrapDelta screen.width (boid.x - x)
+
+                dy =
+                    wrapDelta screen.height (boid.y - y)
+
+                apart =
+                    sqrt (dx * dx + dy * dy)
+            in
+            if apart == 0 || apart >= fleeRange then
+                ( 0, 0 )
+
+            else
+                let
+                    ( ux, uy ) =
+                        normalize ( dx, dy )
+
+                    push =
+                        1 - apart / fleeRange
+                in
+                ( ux * push, uy * push )
 
 
 nearestExit : Extent -> Rect -> Float -> Float -> Maybe Side

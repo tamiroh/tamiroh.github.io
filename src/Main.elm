@@ -7,6 +7,7 @@ import Browser.Events
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events
+import Json.Decode
 import Minesweeper exposing (Cell, Game)
 import Motion exposing (Pull, Shock)
 import Pattern exposing (Pattern)
@@ -51,6 +52,7 @@ type alias Model =
     , pull : Maybe Pull
     , screen : Screen
     , boids : List Boid
+    , pointer : Maybe ( Float, Float )
     }
 
 
@@ -64,6 +66,7 @@ init _ =
       , pull = Nothing
       , screen = { width = 0, height = 0 }
       , boids = []
+      , pointer = Nothing
       }
     , Cmd.batch
         [ Random.generate PatternGenerated Pattern.generator
@@ -86,6 +89,7 @@ type Msg
     | GotViewport Browser.Dom.Viewport
     | Resized Int Int
     | BoidsPlaced (List Boid)
+    | PointerMoved ( Float, Float )
 
 
 subscriptions : Model -> Sub Msg
@@ -94,7 +98,15 @@ subscriptions _ =
         [ Time.every 1000 (\_ -> Tick)
         , Browser.Events.onAnimationFrameDelta Frame
         , Browser.Events.onResize Resized
+        , Browser.Events.onMouseMove pointerDecoder
         ]
+
+
+pointerDecoder : Json.Decode.Decoder Msg
+pointerDecoder =
+    Json.Decode.map2 (\x y -> PointerMoved ( x, y ))
+        (Json.Decode.field "clientX" Json.Decode.float)
+        (Json.Decode.field "clientY" Json.Decode.float)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -124,7 +136,7 @@ update msg model =
                 | time = model.time + delta
                 , shock = Motion.advance (Motion.shockLifetime Minesweeper.cellCount) delta model.shock
                 , pull = Motion.advance Motion.pullDuration delta model.pull
-                , boids = Boid.flock delta model.screen (obstacle model.screen) model.boids
+                , boids = Boid.flock delta model.screen (obstacle model.screen) model.pointer model.boids
               }
             , Cmd.none
             )
@@ -144,6 +156,9 @@ update msg model =
 
         BoidsPlaced boids ->
             ( { model | boids = boids }, Cmd.none )
+
+        PointerMoved point ->
+            ( { model | pointer = Just point }, Cmd.none )
 
 
 struck : Cell -> Model -> Model

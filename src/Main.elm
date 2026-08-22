@@ -100,15 +100,15 @@ type Play
 
 
 type Msg
-    = Clicked Cell
-    | Started Play
-    | Answered
+    = CellClicked Cell
+    | GameStarted Play
+    | OthelloResponded
     | PatternGenerated Pattern
-    | Tick
-    | Frame Float
-    | Pulled
+    | SecondPassed
+    | FramePassed Float
+    | CordPulled
     | GotViewport Browser.Dom.Viewport
-    | Resized Int Int
+    | WindowResized Int Int
     | BoidsPlaced (List Boid)
     | PointerMoved Position
     | EyeOpened (Maybe Eye)
@@ -117,9 +117,9 @@ type Msg
 subscriptions : Model -> Sub Msg
 subscriptions _ =
     Sub.batch
-        [ Time.every 1000 (\_ -> Tick)
-        , Browser.Events.onAnimationFrameDelta Frame
-        , Browser.Events.onResize Resized
+        [ Time.every 1000 (\_ -> SecondPassed)
+        , Browser.Events.onAnimationFrameDelta FramePassed
+        , Browser.Events.onResize WindowResized
         , Browser.Events.onMouseMove pointerDecoder
         ]
 
@@ -139,10 +139,10 @@ positionDecoder =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Clicked cell ->
+        CellClicked cell ->
             case model.play of
                 Fresh ->
-                    ( struck cell model, Random.generate Started (startGenerator cell) )
+                    ( struck cell model, Random.generate GameStarted (startGenerator cell) )
 
                 Mines game ->
                     if Minesweeper.finished game then
@@ -159,10 +159,10 @@ update msg model =
                         Just next ->
                             ( struck cell { model | play = Discs next }, think next )
 
-        Started play ->
+        GameStarted play ->
             ( { model | play = play }, Cmd.none )
 
-        Answered ->
+        OthelloResponded ->
             case model.play of
                 Discs othello ->
                     let
@@ -177,7 +177,7 @@ update msg model =
         PatternGenerated pattern ->
             ( { model | pattern = Pattern.toText (patternColumns model.screen) (patternRows model.screen) pattern }, Cmd.none )
 
-        Tick ->
+        SecondPassed ->
             ( model
             , Cmd.batch
                 [ Random.generate PatternGenerated Pattern.generator
@@ -193,10 +193,10 @@ update msg model =
                 Just eye ->
                     ( { model | eyes = eye :: model.eyes }, Cmd.none )
 
-        Frame delta ->
+        FramePassed delta ->
             ( advance delta model, Cmd.none )
 
-        Pulled ->
+        CordPulled ->
             ( { model | lit = not model.lit, pull = Just { elapsed = 0 } }, Cmd.none )
 
         GotViewport viewport ->
@@ -211,7 +211,7 @@ update msg model =
                 ]
             )
 
-        Resized width height ->
+        WindowResized width height ->
             ( { model | screen = { width = toFloat width, height = toFloat height } }, Cmd.none )
 
         BoidsPlaced boids ->
@@ -270,7 +270,7 @@ startGenerator cell =
 think : Othello.Board -> Cmd Msg
 think othello =
     if Othello.thinking othello then
-        Task.perform (\_ -> Answered) (Process.sleep thinkingDelay)
+        Task.perform (\_ -> OthelloResponded) (Process.sleep thinkingDelay)
 
     else
         Cmd.none
@@ -328,7 +328,7 @@ view model =
             , Attr.style "pointer-events" "none"
             ]
             [ boardLayer model ]
-        , Cord.view (ink model.lit) (paper model.lit) lineWidth Pulled (Motion.pullOffset model.pull)
+        , Cord.view (ink model.lit) (paper model.lit) lineWidth CordPulled (Motion.pullOffset model.pull)
         ]
 
 
@@ -565,7 +565,7 @@ cellView model pointer cell =
             , SvgAttr.stroke (ink model.lit)
             , SvgAttr.rx (String.fromFloat cellRadius)
             , SvgAttr.cursor (Cursor.css (ink model.lit) (paper model.lit) lineWidth True)
-            , Svg.Events.onClick (Clicked cell)
+            , Svg.Events.onClick (CellClicked cell)
             ]
             []
             :: cellMarks model.lit seen x y

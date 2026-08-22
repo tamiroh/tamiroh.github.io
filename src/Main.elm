@@ -191,15 +191,7 @@ view model =
 boardLayer : Model -> Html Msg
 boardLayer model =
     Html.div
-        [ Attr.style "transition" "opacity 1.2s ease-out"
-        , Attr.style "opacity"
-            (if Minesweeper.finished model.game then
-                "0"
-
-             else
-                "1"
-            )
-        , Attr.style "pointer-events"
+        [ Attr.style "pointer-events"
             (if Minesweeper.finished model.game then
                 "none"
 
@@ -294,6 +286,61 @@ dot lit ( x, y ) =
         []
 
 
+skull : Bool -> Float -> Float -> List (Svg msg)
+skull lit x y =
+    let
+        midX =
+            x + cellSize / 2
+
+        midY =
+            y + cellSize / 2
+    in
+    [ Svg.circle
+        [ SvgAttr.cx (String.fromFloat midX)
+        , SvgAttr.cy (String.fromFloat (midY - skullLift))
+        , SvgAttr.r (String.fromFloat skullRadius)
+        , SvgAttr.fill (paper lit)
+        ]
+        []
+    , Svg.rect
+        [ SvgAttr.x (String.fromFloat (midX - skullJawWidth / 2))
+        , SvgAttr.y (String.fromFloat (midY + skullJawTop))
+        , SvgAttr.width (String.fromFloat skullJawWidth)
+        , SvgAttr.height (String.fromFloat skullJawHeight)
+        , SvgAttr.rx (String.fromFloat (skullJawHeight / 3))
+        , SvgAttr.fill (paper lit)
+        ]
+        []
+    , socket lit (midX - skullEyeGap) midY
+    , socket lit (midX + skullEyeGap) midY
+    , tooth lit (midX - skullToothGap) midY
+    , tooth lit (midX + skullToothGap) midY
+    ]
+
+
+socket : Bool -> Float -> Float -> Svg msg
+socket lit midX midY =
+    Svg.circle
+        [ SvgAttr.cx (String.fromFloat midX)
+        , SvgAttr.cy (String.fromFloat (midY - skullEyeLift))
+        , SvgAttr.r (String.fromFloat skullEyeRadius)
+        , SvgAttr.fill (ink lit)
+        ]
+        []
+
+
+tooth : Bool -> Float -> Float -> Svg msg
+tooth lit midX midY =
+    Svg.rect
+        [ SvgAttr.x (String.fromFloat (midX - skullToothWidth / 2))
+        , SvgAttr.y (String.fromFloat (midY + skullToothTop))
+        , SvgAttr.width (String.fromFloat skullToothWidth)
+        , SvgAttr.height (String.fromFloat skullToothHeight)
+        , SvgAttr.fill (ink lit)
+        ]
+        []
+
+
 patternLayer : Bool -> List String -> Html msg
 patternLayer lit rows =
     Html.pre
@@ -331,8 +378,11 @@ cellView model cell =
         ( dx, dy ) =
             Motion.offset Minesweeper.cellCount model.shock model.time cell
 
+        face =
+            Minesweeper.faceOf cell model.game
+
         opened =
-            Minesweeper.isRevealed cell model.game
+            face /= Minesweeper.Hidden
 
         x =
             position column + gap / 2 + dx
@@ -360,16 +410,27 @@ cellView model cell =
         ]
         []
         :: (if opened then
-                pips model cell x y
+                marks model.lit face x y
 
             else
                 []
            )
 
 
-pips : Model -> Cell -> Float -> Float -> List (Svg msg)
-pips model cell x y =
-    List.map (pip model.lit x y) (pipCells (Minesweeper.adjacentMines cell model.game))
+marks : Bool -> Minesweeper.Face -> Float -> Float -> List (Svg msg)
+marks lit face x y =
+    case face of
+        Minesweeper.Hidden ->
+            []
+
+        Minesweeper.Blank ->
+            []
+
+        Minesweeper.Count count ->
+            List.map (pip lit x y) (pipCells count)
+
+        Minesweeper.Mine ->
+            skull lit x y
 
 
 pip : Bool -> Float -> Float -> ( Int, Int ) -> Svg msg
@@ -513,6 +574,70 @@ pipCells count =
 
         _ ->
             []
+
+
+
+-- SKULL
+
+
+skullRadius : Float
+skullRadius =
+    cellSize * 0.26
+
+
+skullLift : Float
+skullLift =
+    cellSize * 0.06
+
+
+skullJawWidth : Float
+skullJawWidth =
+    cellSize * 0.32
+
+
+skullJawHeight : Float
+skullJawHeight =
+    cellSize * 0.17
+
+
+skullJawTop : Float
+skullJawTop =
+    cellSize * 0.1
+
+
+skullEyeRadius : Float
+skullEyeRadius =
+    cellSize * 0.095
+
+
+skullEyeGap : Float
+skullEyeGap =
+    cellSize * 0.105
+
+
+skullEyeLift : Float
+skullEyeLift =
+    cellSize * 0.07
+
+
+skullToothWidth : Float
+skullToothWidth =
+    cellSize * 0.044
+
+
+skullToothHeight : Float
+skullToothHeight =
+    cellSize * 0.09
+
+
+skullToothTop : Float
+skullToothTop =
+    cellSize * 0.13
+
+
+skullToothGap : Float
+skullToothGap =
+    cellSize * 0.055
 
 
 

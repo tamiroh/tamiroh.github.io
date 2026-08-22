@@ -1,12 +1,12 @@
 module Minesweeper exposing
     ( Cell
+    , Face(..)
     , Game
-    , adjacentMines
     , cellCount
     , cells
+    , faceOf
     , finished
     , isReady
-    , isRevealed
     , new
     , reveal
     , start
@@ -22,6 +22,13 @@ import Set exposing (Set)
 
 type alias Cell =
     ( Int, Int )
+
+
+type Face
+    = Hidden
+    | Blank
+    | Count Int
+    | Mine
 
 
 type Status
@@ -107,7 +114,7 @@ minesGenerator safe =
 reveal : Cell -> Game -> Game
 reveal cell (Game game) =
     if Set.member cell game.mines then
-        Game { game | status = Lost }
+        Game { game | revealed = Set.fromList cells, status = Lost }
 
     else
         let
@@ -163,14 +170,21 @@ finished (Game game) =
             True
 
 
-isRevealed : Cell -> Game -> Bool
-isRevealed cell (Game game) =
-    Set.member cell game.revealed
+faceOf : Cell -> Game -> Face
+faceOf cell (Game game) =
+    if not (Set.member cell game.revealed) then
+        Hidden
 
+    else if Set.member cell game.mines then
+        Mine
 
-adjacentMines : Cell -> Game -> Int
-adjacentMines cell (Game game) =
-    minesAround game.mines cell
+    else
+        case minesAround game.mines cell of
+            0 ->
+                Blank
+
+            count ->
+                Count count
 
 
 minesAround : Set Cell -> Cell -> Int

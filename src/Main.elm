@@ -53,6 +53,7 @@ type alias Model =
     , status : Status
     , pattern : List String
     , shock : Maybe Shock
+    , time : Float
     }
 
 
@@ -63,6 +64,7 @@ init _ =
       , status = Ready
       , pattern = []
       , shock = Nothing
+      , time = 0
       }
     , Random.generate PatternGenerated patternGenerator
     )
@@ -81,15 +83,10 @@ type Msg
 
 
 subscriptions : Model -> Sub Msg
-subscriptions model =
+subscriptions _ =
     Sub.batch
         [ Time.every 1000 (\_ -> Tick)
-        , case model.shock of
-            Nothing ->
-                Sub.none
-
-            Just _ ->
-                Browser.Events.onAnimationFrameDelta Frame
+        , Browser.Events.onAnimationFrameDelta Frame
         ]
 
 
@@ -120,7 +117,7 @@ update msg model =
             ( model, Random.generate PatternGenerated patternGenerator )
 
         Frame delta ->
-            ( { model | shock = advance delta model.shock }, Cmd.none )
+            ( { model | time = model.time + delta, shock = advance delta model.shock }, Cmd.none )
 
 
 struck : Cell -> Model -> Model
@@ -303,7 +300,7 @@ cellView model cell =
             cell
 
         ( dx, dy ) =
-            displacement model.shock cell
+            offset model cell
 
         opened =
             Set.member cell model.revealed
@@ -386,7 +383,7 @@ spacing =
 
 gap : Float
 gap =
-    4
+    6
 
 
 cellSize : Float
@@ -490,6 +487,46 @@ displacement shock ( column, row ) =
                         shockAmplitude * sin (pi * local / shockDuration) * (distance / maxDistance) ^ 2
                 in
                 ( dx / distance * amplitude, dy / distance * amplitude )
+
+
+
+-- DRIFT
+
+
+driftAmplitude : Float
+driftAmplitude =
+    1.2
+
+
+offset : Model -> Cell -> ( Float, Float )
+offset model cell =
+    let
+        ( shockX, shockY ) =
+            displacement model.shock cell
+
+        ( driftX, driftY ) =
+            drift model.time cell
+    in
+    ( shockX + driftX, shockY + driftY )
+
+
+drift : Float -> Cell -> ( Float, Float )
+drift time ( column, row ) =
+    let
+        seconds =
+            time / 1000
+
+        seed =
+            toFloat (column * 3 + row * 5)
+    in
+    ( wobble seconds seed 1.3 2.7
+    , wobble seconds (seed * 1.7 + 2.1) 1.1 2.3
+    )
+
+
+wobble : Float -> Float -> Float -> Float -> Float
+wobble seconds seed slow fast =
+    driftAmplitude * (sin (seconds * slow + seed) + 0.5 * sin (seconds * fast + seed * 1.9))
 
 
 

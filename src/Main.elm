@@ -231,10 +231,18 @@ pace model =
 
                 lean =
                     negate (clamp -1 1 (aside / walkerFocus))
+
+                panic =
+                    walkerPanic
+                        * max 0 ((walkerPanicRange / max walkerPanicFloor span) ^ 2 - 1)
             in
-            max 0
-                (walkerSpeed
-                    * (1 - near * walkerBrake * max 0 (negate lean) + near * walkerRush * max 0 lean)
+            min (walkerSpeed * walkerLimit)
+                (max 0
+                    (walkerSpeed
+                        * (1 - near * walkerBrake * max 0 (negate lean) + near * walkerRush * max 0 lean)
+                    )
+                    + walkerSpeed
+                    * panic
                 )
 
 
@@ -1056,17 +1064,37 @@ walkerRush =
 
 walkerFlail : Float
 walkerFlail =
-    2.4
+    2.8
 
 
 walkerTilt : Float
 walkerTilt =
-    12
+    16
 
 
 walkerLift : Float
 walkerLift =
     3
+
+
+walkerPanic : Float
+walkerPanic =
+    3
+
+
+walkerPanicRange : Float
+walkerPanicRange =
+    60
+
+
+walkerPanicFloor : Float
+walkerPanicFloor =
+    12
+
+
+walkerLimit : Float
+walkerLimit =
+    30
 
 
 walkerFocus : Float

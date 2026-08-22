@@ -16,6 +16,7 @@ import Othello
 import Pattern exposing (Pattern)
 import Process
 import Random
+import Rigid
 import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
 import Svg.Events
@@ -51,6 +52,8 @@ type alias Model =
     , screen : Screen
     , boids : List Boid
     , pointer : Maybe Position
+    , drawing : Maybe (List Position)
+    , bodies : List Rigid.Body
     }
 
 
@@ -65,6 +68,8 @@ init _ =
       , screen = { width = 0, height = 0 }
       , boids = []
       , pointer = Nothing
+      , drawing = Nothing
+      , bodies = []
       }
     , Cmd.batch
         [ Random.generate PatternGenerated Pattern.generator
@@ -95,6 +100,8 @@ type Msg
     | Resized Int Int
     | BoidsPlaced (List Boid)
     | PointerMoved Position
+    | DragStarted Position
+    | DragEnded
 
 
 subscriptions : Model -> Sub Msg
@@ -104,12 +111,18 @@ subscriptions _ =
         , Browser.Events.onAnimationFrameDelta Frame
         , Browser.Events.onResize Resized
         , Browser.Events.onMouseMove pointerDecoder
+        , Browser.Events.onMouseUp (Json.Decode.succeed DragEnded)
         ]
 
 
 pointerDecoder : Json.Decode.Decoder Msg
 pointerDecoder =
-    Json.Decode.map2 (\x y -> PointerMoved ( x, y ))
+    Json.Decode.map PointerMoved positionDecoder
+
+
+positionDecoder : Json.Decode.Decoder Position
+positionDecoder =
+    Json.Decode.map2 Tuple.pair
         (Json.Decode.field "clientX" Json.Decode.float)
         (Json.Decode.field "clientY" Json.Decode.float)
 
@@ -164,6 +177,7 @@ update msg model =
                 , shock = Motion.advance (Motion.shockLifetime Grid.count) delta model.shock
                 , pull = Motion.advance Motion.pullDuration delta model.pull
                 , boids = Boid.flock delta model.screen (obstacle model.screen) model.pointer model.boids
+                , bodies = Rigid.step delta model.screen model.bodies
               }
             , Cmd.none
             )
@@ -190,7 +204,33 @@ update msg model =
             ( { model | boids = boids }, Cmd.none )
 
         PointerMoved point ->
-            ( { model | pointer = Just point }, Cmd.none )
+            ( { model
+                | pointer = Just point
+                , drawing = Maybe.map (\points -> List.take strokeLimit (point :: points)) model.drawing
+              }
+            , Cmd.none
+            )
+
+        DragStarted point ->
+            ( { model | drawing = Just [ point ] }, Cmd.none )
+
+        DragEnded ->
+            case model.drawing of
+                Nothing ->
+                    ( model, Cmd.none )
+
+                Just points ->
+                    ( { model | drawing = Nothing, bodies = dropped points model.bodies }, Cmd.none )
+
+
+dropped : List Position -> List Rigid.Body -> List Rigid.Body
+dropped points bodies =
+    case Rigid.fromStroke points of
+        Nothing ->
+            bodies
+
+        Just body ->
+            List.take bodyLimit (body :: bodies)
 
 
 startGenerator : Cell -> Random.Generator Play
@@ -239,12 +279,14 @@ view model =
         , backgroundLayer model.lit
         , patternLayer model.lit model.pattern
         , boidLayer model.lit model.screen model.boids
+        , strokeLayer model.lit model.screen model.drawing model.bodies
         , Html.div
             [ Attr.style "position" "fixed"
             , Attr.style "inset" "0"
             , Attr.style "display" "flex"
             , Attr.style "justify-content" "center"
             , Attr.style "align-items" "center"
+            , Attr.style "pointer-events" "none"
             ]
             [ boardLayer model ]
         , cordLayer model.lit (Motion.pullOffset model.pull)
@@ -269,18 +311,48 @@ pageStyle : Html msg
 pageStyle =
     Html.node "style"
         []
-        [ Html.text "html,body{margin:0;overflow:hidden;overscroll-behavior:none}" ]
+        [ Html.text "html,body{margin:0;overflow:hidden;overscroll-behavior:none;user-select:none;-webkit-user-select:none}" ]
 
 
-backgroundLayer : Bool -> Html msg
+backgroundLayer : Bool -> Html Msg
 backgroundLayer lit =
     Html.div
         [ Attr.style "position" "fixed"
         , Attr.style "inset" "0"
         , Attr.style "background-color" (paper lit)
-        , Attr.style "pointer-events" "none"
+        , Html.Events.on "mousedown" (Json.Decode.map DragStarted positionDecoder)
         ]
         []
+
+
+strokeLayer : Bool -> Screen -> Maybe (List Position) -> List Rigid.Body -> Html msg
+strokeLayer lit screen drawing bodies =
+    Svg.svg
+        [ SvgAttr.width (String.fromFloat screen.width)
+        , SvgAttr.height (String.fromFloat screen.height)
+        , Attr.style "position" "fixed"
+        , Attr.style "inset" "0"
+        , Attr.style "pointer-events" "none"
+        ]
+        (List.map (strokeView lit) (List.map Rigid.path bodies ++ Maybe.withDefault [] (Maybe.map List.singleton drawing)))
+
+
+strokeView : Bool -> List Position -> Svg msg
+strokeView lit points =
+    Svg.polyline
+        [ SvgAttr.fill "none"
+        , SvgAttr.stroke (ink lit)
+        , SvgAttr.strokeWidth (String.fromFloat lineWidth)
+        , SvgAttr.strokeLinecap "round"
+        , SvgAttr.strokeLinejoin "round"
+        , SvgAttr.points (String.join " " (List.map coordinate points))
+        ]
+        []
+
+
+coordinate : Position -> String
+coordinate ( x, y ) =
+    String.fromFloat x ++ "," ++ String.fromFloat y
 
 
 cordLayer : Bool -> Float -> Html Msg
@@ -679,6 +751,20 @@ pipCells count =
 
         _ ->
             []
+
+
+
+-- STROKE
+
+
+strokeLimit : Int
+strokeLimit =
+    400
+
+
+bodyLimit : Int
+bodyLimit =
+    12
 
 
 

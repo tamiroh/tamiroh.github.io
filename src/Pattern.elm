@@ -13,16 +13,6 @@ type Pattern
     | Ripples { fx : Float, cx : Float, cy : Float }
 
 
-width : Int
-width =
-    240
-
-
-height : Int
-height =
-    100
-
-
 
 -- GENERATE
 
@@ -68,15 +58,15 @@ angle =
 -- RENDER
 
 
-toRows : Pattern -> List String
-toRows pattern =
+toRows : Int -> Int -> Pattern -> List String
+toRows columns rows pattern =
     List.map
-        (\y -> String.concat (List.map (\x -> charAt pattern x y) (List.range 0 (width - 1))))
-        (List.range 0 (height - 1))
+        (\y -> String.concat (List.map (\x -> charAt columns rows pattern x y) (List.range 0 (columns - 1))))
+        (List.range 0 (rows - 1))
 
 
-charAt : Pattern -> Int -> Int -> String
-charAt pattern x y =
+charAt : Int -> Int -> Pattern -> Int -> Int -> String
+charAt columns rows pattern x y =
     case pattern of
         Diagonals { phase } ->
             if noise phase x y < 0.5 then
@@ -91,10 +81,10 @@ charAt pattern x y =
         Ripples { fx, cx, cy } ->
             let
                 dx =
-                    toFloat x - cx * toFloat width
+                    toFloat x - cx * toFloat columns
 
                 dy =
-                    (toFloat y - cy * toFloat height) * 2
+                    (toFloat y - cy * toFloat rows) * 2
             in
             ramp (2 * sin (sqrt (dx * dx + dy * dy) * fx))
 

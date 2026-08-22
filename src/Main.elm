@@ -121,7 +121,7 @@ update msg model =
             ( { model | game = Minesweeper.reveal cell game }, Cmd.none )
 
         PatternGenerated pattern ->
-            ( { model | pattern = Pattern.toRows pattern }, Cmd.none )
+            ( { model | pattern = Pattern.toRows (patternColumns model.screen) (patternRows model.screen) pattern }, Cmd.none )
 
         Tick ->
             ( model, Random.generate PatternGenerated Pattern.generator )
@@ -144,7 +144,12 @@ update msg model =
                 screen =
                     { width = viewport.viewport.width, height = viewport.viewport.height }
             in
-            ( { model | screen = screen }, Random.generate BoidsPlaced (Boid.generator screen (obstacle screen)) )
+            ( { model | screen = screen }
+            , Cmd.batch
+                [ Random.generate BoidsPlaced (Boid.generator screen (obstacle screen))
+                , Random.generate PatternGenerated Pattern.generator
+                ]
+            )
 
         Resized width height ->
             ( { model | screen = { width = toFloat width, height = toFloat height } }, Cmd.none )
@@ -297,8 +302,8 @@ patternLayer lit rows =
         , Attr.style "margin" "0"
         , Attr.style "overflow" "hidden"
         , Attr.style "font-family" "monospace"
-        , Attr.style "font-size" "13px"
-        , Attr.style "line-height" "1.2"
+        , Attr.style "font-size" (String.fromFloat patternFontSize ++ "px")
+        , Attr.style "line-height" (String.fromFloat patternLineHeight)
         , Attr.style "color" (patternInk lit)
         , Attr.style "pointer-events" "none"
         , Attr.style "user-select" "none"
@@ -508,6 +513,35 @@ pipCells count =
 
         _ ->
             []
+
+
+
+-- BACKDROP
+
+
+patternFontSize : Float
+patternFontSize =
+    13
+
+
+patternLineHeight : Float
+patternLineHeight =
+    1.2
+
+
+patternCharWidth : Float
+patternCharWidth =
+    patternFontSize * 0.45
+
+
+patternColumns : Screen -> Int
+patternColumns screen =
+    ceiling (screen.width / patternCharWidth) + 1
+
+
+patternRows : Screen -> Int
+patternRows screen =
+    ceiling (screen.height / (patternFontSize * patternLineHeight)) + 1
 
 
 

@@ -89,6 +89,7 @@ type alias Eye =
     , y : Float
     , born : Float
     , life : Float
+    , shut : Maybe Float
     }
 
 
@@ -205,7 +206,7 @@ update msg model =
                 , pull = Motion.advance Motion.pullDuration delta model.pull
                 , boids = Boid.flock delta (field model.screen) model.pointer model.boids
                 , walked = model.walked + pace model * delta / 1000
-                , eyes = List.filter (\eye -> model.time - eye.born < eye.life) model.eyes
+                , eyes = List.filterMap (startle model) model.eyes
               }
             , Cmd.none
             )
@@ -985,6 +986,16 @@ eyeChance =
     0.4
 
 
+eyeShy : Float
+eyeShy =
+    90
+
+
+eyeBlink : Float
+eyeBlink =
+    110
+
+
 eyeGenerator : Screen -> Float -> Random.Generator (Maybe Eye)
 eyeGenerator screen now =
     Random.andThen
@@ -995,7 +1006,7 @@ eyeGenerator screen now =
             else
                 Random.map Just
                     (Random.map3
-                        (\x y life -> { x = x, y = y, born = now, life = life })
+                        (\x y life -> { x = x, y = y, born = now, life = life, shut = Nothing })
                         (Random.float 0 screen.width)
                         (Random.float 0 screen.height)
                         (Random.float 2400 4600)
@@ -1007,6 +1018,49 @@ eyeGenerator screen now =
 aperture : Float -> Eye -> Float
 aperture now eye =
     min 1 (eyeSnap * sin (pi * clamp 0 1 ((now - eye.born) / eye.life)))
+        * closing now eye
+
+
+closing : Float -> Eye -> Float
+closing now eye =
+    case eye.shut of
+        Nothing ->
+            1
+
+        Just at ->
+            max 0 (1 - (now - at) / eyeBlink)
+
+
+startle : Model -> Eye -> Maybe Eye
+startle model eye =
+    if model.time - eye.born >= eye.life then
+        Nothing
+
+    else
+        case eye.shut of
+            Just at ->
+                if model.time - at >= eyeBlink then
+                    Nothing
+
+                else
+                    Just eye
+
+            Nothing ->
+                if noticed model.pointer eye then
+                    Just { eye | shut = Just model.time }
+
+                else
+                    Just eye
+
+
+noticed : Maybe Position -> Eye -> Bool
+noticed pointer eye =
+    case pointer of
+        Nothing ->
+            False
+
+        Just ( px, py ) ->
+            (px - eye.x) ^ 2 + (py - eye.y) ^ 2 < eyeShy ^ 2
 
 
 

@@ -4,7 +4,7 @@ import Boid exposing (Boid)
 import Browser
 import Browser.Dom
 import Browser.Events
-import Geometry exposing (Position, Screen, wrap, wrapDelta)
+import Geometry exposing (Position, Screen, Vector, wrap, wrapDelta)
 import Grid exposing (Cell)
 import Html exposing (Html)
 import Html.Attributes as Attr
@@ -558,17 +558,23 @@ board model =
         , SvgAttr.viewBox ("0 0 " ++ String.fromFloat boardSize ++ " " ++ String.fromFloat boardSize)
         , SvgAttr.style "overflow: visible"
         ]
-        (List.concatMap (cellView model) Grid.cells)
+        (List.concatMap (cellView model (boardPointer model)) Grid.cells)
 
 
-cellView : Model -> Cell -> List (Svg Msg)
-cellView model cell =
+cellView : Model -> Maybe Position -> Cell -> List (Svg Msg)
+cellView model pointer cell =
     let
         ( column, row ) =
             cell
 
-        ( dx, dy ) =
+        ( shoveX, shoveY ) =
+            shove pointer cell
+
+        ( driftX, driftY ) =
             Motion.offset Grid.count model.shock model.time cell
+
+        ( dx, dy ) =
+            ( driftX + shoveX, driftY + shoveY )
 
         seen =
             content model cell
@@ -586,27 +592,35 @@ cellView model cell =
 
         y =
             position row + gap / 2 + dy
-    in
-    Svg.rect
-        [ SvgAttr.x (String.fromFloat x)
-        , SvgAttr.y (String.fromFloat y)
-        , SvgAttr.width (String.fromFloat cellSize)
-        , SvgAttr.height (String.fromFloat cellSize)
-        , SvgAttr.fill
-            (if opened then
-                ink model.lit
 
-             else
-                paper model.lit
-            )
-        , SvgAttr.stroke (ink model.lit)
-        , SvgAttr.strokeWidth (String.fromFloat lineWidth)
-        , SvgAttr.shapeRendering "crispEdges"
-        , SvgAttr.cursor "pointer"
-        , Svg.Events.onClick (Clicked cell)
+        size =
+            swell pointer cell
+    in
+    [ Svg.g
+        [ SvgAttr.transform (about (x + cellSize / 2) (y + cellSize / 2) size)
+        , SvgAttr.strokeWidth (String.fromFloat (lineWidth / size))
         ]
-        []
-        :: cellMarks model.lit seen x y
+        (Svg.rect
+            [ SvgAttr.x (String.fromFloat x)
+            , SvgAttr.y (String.fromFloat y)
+            , SvgAttr.width (String.fromFloat cellSize)
+            , SvgAttr.height (String.fromFloat cellSize)
+            , SvgAttr.fill
+                (if opened then
+                    ink model.lit
+
+                 else
+                    paper model.lit
+                )
+            , SvgAttr.stroke (ink model.lit)
+            , SvgAttr.shapeRendering "crispEdges"
+            , SvgAttr.cursor "pointer"
+            , Svg.Events.onClick (Clicked cell)
+            ]
+            []
+            :: cellMarks model.lit seen x y
+        )
+    ]
 
 
 content : Model -> Cell -> Content
@@ -655,7 +669,6 @@ disc lit side x y =
                     paper lit
             )
         , SvgAttr.stroke (ink lit)
-        , SvgAttr.strokeWidth (String.fromFloat lineWidth)
         ]
         []
 
@@ -836,6 +849,97 @@ discRadius =
 thinkingDelay : Float
 thinkingDelay =
     420
+
+
+
+-- HOVER
+
+
+hoverReach : Float
+hoverReach =
+    120
+
+
+hoverGrow : Float
+hoverGrow =
+    0.35
+
+
+hoverPush : Float
+hoverPush =
+    7
+
+
+boardPointer : Model -> Maybe Position
+boardPointer model =
+    Maybe.map
+        (\( px, py ) ->
+            ( px - (model.screen.width / 2 - boardSize / 2)
+            , py - (model.screen.height / 2 - boardSize / 2)
+            )
+        )
+        model.pointer
+
+
+reachOf : Maybe Position -> Cell -> Maybe ( Float, Float, Float )
+reachOf pointer ( column, row ) =
+    Maybe.map
+        (\( px, py ) ->
+            let
+                dx =
+                    position column + spacing / 2 - px
+
+                dy =
+                    position row + spacing / 2 - py
+            in
+            ( dx, dy, sqrt (dx * dx + dy * dy) )
+        )
+        pointer
+
+
+swell : Maybe Position -> Cell -> Float
+swell pointer cell =
+    case reachOf pointer cell of
+        Nothing ->
+            1
+
+        Just ( _, _, apart ) ->
+            1 + hoverGrow * max 0 (1 - apart / spacing)
+
+
+shove : Maybe Position -> Cell -> Vector
+shove pointer cell =
+    case reachOf pointer cell of
+        Nothing ->
+            ( 0, 0 )
+
+        Just ( dx, dy, apart ) ->
+            if apart == 0 || apart >= hoverReach then
+                ( 0, 0 )
+
+            else
+                let
+                    push =
+                        hoverPush * sin (pi * apart / hoverReach)
+                in
+                ( dx / apart * push, dy / apart * push )
+
+
+about : Float -> Float -> Float -> String
+about midX midY size =
+    String.concat
+        [ "translate("
+        , String.fromFloat midX
+        , ","
+        , String.fromFloat midY
+        , ") scale("
+        , String.fromFloat size
+        , ") translate("
+        , String.fromFloat (negate midX)
+        , ","
+        , String.fromFloat (negate midY)
+        , ")"
+        ]
 
 
 

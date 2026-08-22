@@ -239,11 +239,11 @@ view model =
         , patternLayer model.lit model.pattern
         , boidLayer model.lit model.screen model.boids
         , Html.div
-            [ Attr.style "position" "relative"
+            [ Attr.style "position" "fixed"
+            , Attr.style "inset" "0"
             , Attr.style "display" "flex"
             , Attr.style "justify-content" "center"
             , Attr.style "align-items" "center"
-            , Attr.style "min-height" "100vh"
             ]
             [ boardLayer model ]
         , cordLayer model.lit (Motion.pullOffset model.pull)

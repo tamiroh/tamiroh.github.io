@@ -64,6 +64,10 @@ type alias Shock =
     }
 
 
+type alias Pull =
+    { elapsed : Float }
+
+
 type alias Model =
     { mines : Set Cell
     , revealed : Set Cell
@@ -72,6 +76,7 @@ type alias Model =
     , shock : Maybe Shock
     , time : Float
     , lit : Bool
+    , pull : Maybe Pull
     }
 
 
@@ -84,6 +89,7 @@ init _ =
       , shock = Nothing
       , time = 0
       , lit = True
+      , pull = Nothing
       }
     , Random.generate PatternGenerated patternGenerator
     )
@@ -137,10 +143,16 @@ update msg model =
             ( model, Random.generate PatternGenerated patternGenerator )
 
         Frame delta ->
-            ( { model | time = model.time + delta, shock = advance delta model.shock }, Cmd.none )
+            ( { model
+                | time = model.time + delta
+                , shock = advance shockLifetime delta model.shock
+                , pull = advance pullDuration delta model.pull
+              }
+            , Cmd.none
+            )
 
         Pulled ->
-            ( { model | lit = not model.lit }, Cmd.none )
+            ( { model | lit = not model.lit, pull = Just { elapsed = 0 } }, Cmd.none )
 
 
 struck : Cell -> Model -> Model
@@ -148,9 +160,9 @@ struck cell model =
     { model | shock = Just { origin = cell, elapsed = 0 } }
 
 
-advance : Float -> Maybe Shock -> Maybe Shock
-advance delta shock =
-    case shock of
+advance : Float -> Float -> Maybe { a | elapsed : Float } -> Maybe { a | elapsed : Float }
+advance lifetime delta timer =
+    case timer of
         Nothing ->
             Nothing
 
@@ -159,7 +171,7 @@ advance delta shock =
                 elapsed =
                     current.elapsed + delta
             in
-            if elapsed > shockLifetime then
+            if elapsed > lifetime then
                 Nothing
 
             else
@@ -183,7 +195,7 @@ view model =
             , Attr.style "min-height" "100vh"
             ]
             [ boardLayer model ]
-        , cordLayer model.lit
+        , cordLayer model.lit (pullOffset model.pull)
         ]
 
 
@@ -220,8 +232,8 @@ backgroundLayer lit =
         []
 
 
-cordLayer : Bool -> Html Msg
-cordLayer lit =
+cordLayer : Bool -> Float -> Html Msg
+cordLayer lit dy =
     Html.div
         [ Attr.style "position" "fixed"
         , Attr.style "top" "0"
@@ -230,27 +242,28 @@ cordLayer lit =
         , Attr.style "user-select" "none"
         , Html.Events.onClick Pulled
         ]
-        [ cord lit ]
+        [ cord lit dy ]
 
 
-cord : Bool -> Svg msg
-cord lit =
+cord : Bool -> Float -> Svg msg
+cord lit dy =
     Svg.svg
         [ SvgAttr.width (String.fromFloat cordWidth)
         , SvgAttr.height (String.fromFloat (cordLength + cordGripHeight + lineWidth))
+        , SvgAttr.style "overflow: visible"
         ]
         [ Svg.line
             [ SvgAttr.x1 (String.fromFloat (cordWidth / 2))
             , SvgAttr.y1 "0"
             , SvgAttr.x2 (String.fromFloat (cordWidth / 2))
-            , SvgAttr.y2 (String.fromFloat cordLength)
+            , SvgAttr.y2 (String.fromFloat (cordLength + dy))
             , SvgAttr.stroke (ink lit)
             , SvgAttr.strokeWidth (String.fromFloat lineWidth)
             ]
             []
         , Svg.rect
             [ SvgAttr.x (String.fromFloat ((cordWidth - cordGripWidth) / 2))
-            , SvgAttr.y (String.fromFloat cordLength)
+            , SvgAttr.y (String.fromFloat (cordLength + dy))
             , SvgAttr.width (String.fromFloat cordGripWidth)
             , SvgAttr.height (String.fromFloat cordGripHeight)
             , SvgAttr.rx (String.fromFloat (cordGripWidth / 2))
@@ -658,6 +671,43 @@ displacement shock ( column, row ) =
                         shockAmplitude * sin (pi * local / shockDuration) * (distance / maxDistance) ^ 2
                 in
                 ( dx / distance * amplitude, dy / distance * amplitude )
+
+
+pullAmplitude : Float
+pullAmplitude =
+    20
+
+
+pullDuration : Float
+pullDuration =
+    600
+
+
+pullCycles : Float
+pullCycles =
+    1.25
+
+
+pullDamping : Float
+pullDamping =
+    4
+
+
+pullOffset : Maybe Pull -> Float
+pullOffset pull =
+    case pull of
+        Nothing ->
+            0
+
+        Just { elapsed } ->
+            let
+                phase =
+                    elapsed / pullDuration
+            in
+            pullAmplitude
+                * sin (pullCycles * 2 * pi * phase)
+                * e
+                ^ negate (pullDamping * phase)
 
 
 driftAmplitude : Float

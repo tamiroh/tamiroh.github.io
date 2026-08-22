@@ -235,7 +235,8 @@ struck cell model =
 view : Model -> Html Msg
 view model =
     Html.div []
-        [ backgroundLayer model.lit
+        [ pageStyle
+        , backgroundLayer model.lit
         , patternLayer model.lit model.pattern
         , boidLayer model.lit model.screen model.boids
         , Html.div
@@ -262,6 +263,13 @@ boardLayer model =
             )
         ]
         [ board model ]
+
+
+pageStyle : Html msg
+pageStyle =
+    Html.node "style"
+        []
+        [ Html.text "html,body{margin:0;overflow:hidden;overscroll-behavior:none}" ]
 
 
 backgroundLayer : Bool -> Html msg

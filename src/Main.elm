@@ -101,16 +101,16 @@ type Play
 
 type Msg
     = CellClicked Cell
+    | CordPulled
     | GameStarted Play
     | OthelloResponded
-    | PatternGenerated Pattern
-    | SecondPassed
     | FramePassed Float
-    | CordPulled
+    | SecondPassed
+    | PointerMoved Position
     | GotViewport Browser.Dom.Viewport
     | WindowResized Int Int
+    | PatternGenerated Pattern
     | BoidsPlaced (List Boid)
-    | PointerMoved Position
     | EyeOpened (Maybe Eye)
 
 
@@ -159,6 +159,9 @@ update msg model =
                         Just next ->
                             ( struck cell { model | play = Discs next }, think next )
 
+        CordPulled ->
+            ( { model | theme = toggle model.theme, pull = Just { elapsed = 0 } }, Cmd.none )
+
         GameStarted play ->
             ( { model | play = play }, Cmd.none )
 
@@ -174,8 +177,8 @@ update msg model =
                 _ ->
                     ( model, Cmd.none )
 
-        PatternGenerated pattern ->
-            ( { model | pattern = Pattern.toText (patternColumns model.screen) (patternRows model.screen) pattern }, Cmd.none )
+        FramePassed delta ->
+            ( advance delta model, Cmd.none )
 
         SecondPassed ->
             ( model
@@ -185,19 +188,8 @@ update msg model =
                 ]
             )
 
-        EyeOpened opened ->
-            case opened of
-                Nothing ->
-                    ( model, Cmd.none )
-
-                Just eye ->
-                    ( { model | eyes = eye :: model.eyes }, Cmd.none )
-
-        FramePassed delta ->
-            ( advance delta model, Cmd.none )
-
-        CordPulled ->
-            ( { model | theme = toggle model.theme, pull = Just { elapsed = 0 } }, Cmd.none )
+        PointerMoved point ->
+            ( { model | pointer = Just point }, Cmd.none )
 
         GotViewport viewport ->
             let
@@ -214,11 +206,19 @@ update msg model =
         WindowResized width height ->
             ( { model | screen = { width = toFloat width, height = toFloat height } }, Cmd.none )
 
+        PatternGenerated pattern ->
+            ( { model | pattern = Pattern.toText (patternColumns model.screen) (patternRows model.screen) pattern }, Cmd.none )
+
         BoidsPlaced boids ->
             ( { model | boids = boids }, Cmd.none )
 
-        PointerMoved point ->
-            ( { model | pointer = Just point }, Cmd.none )
+        EyeOpened opened ->
+            case opened of
+                Nothing ->
+                    ( model, Cmd.none )
+
+                Just eye ->
+                    ( { model | eyes = eye :: model.eyes }, Cmd.none )
 
 
 pace : Model -> Float

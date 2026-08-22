@@ -266,35 +266,27 @@ cellView model cell =
         ]
         []
         :: (if opened then
-                labels model cell x y
+                pips model cell x y
 
             else
                 []
            )
 
 
-labels : Model -> Cell -> Float -> Float -> List (Svg msg)
-labels model cell x y =
-    case adjacentMines model.mines cell of
-        0 ->
-            []
-
-        count ->
-            [ label x y count ]
+pips : Model -> Cell -> Float -> Float -> List (Svg msg)
+pips model cell x y =
+    List.map (pip x y) (pipCells (adjacentMines model.mines cell))
 
 
-label : Float -> Float -> Int -> Svg msg
-label x y count =
-    Svg.text_
-        [ SvgAttr.x (String.fromFloat (x + cellSize / 2))
-        , SvgAttr.y (String.fromFloat (y + cellSize / 2))
-        , SvgAttr.textAnchor "middle"
-        , SvgAttr.dominantBaseline "central"
-        , SvgAttr.fontFamily "monospace"
-        , SvgAttr.fontSize (String.fromFloat (cellSize / 2))
+pip : Float -> Float -> ( Int, Int ) -> Svg msg
+pip x y ( column, row ) =
+    Svg.circle
+        [ SvgAttr.cx (String.fromFloat (x + pipOffset column))
+        , SvgAttr.cy (String.fromFloat (y + pipOffset row))
+        , SvgAttr.r (String.fromFloat pipRadius)
         , SvgAttr.fill paper
         ]
-        [ Svg.text (String.fromInt count) ]
+        []
 
 
 
@@ -417,6 +409,57 @@ cells =
 position : Int -> Float
 position index =
     margin + spacing * toFloat index
+
+
+pipRadius : Float
+pipRadius =
+    cellSize / 14
+
+
+pipOffset : Int -> Float
+pipOffset index =
+    cellSize * (0.25 + 0.25 * toFloat index)
+
+
+pipCells : Int -> List ( Int, Int )
+pipCells count =
+    let
+        corners =
+            [ ( 0, 0 ), ( 2, 0 ), ( 0, 2 ), ( 2, 2 ) ]
+
+        sides =
+            [ ( 0, 1 ), ( 2, 1 ) ]
+
+        center =
+            [ ( 1, 1 ) ]
+    in
+    case count of
+        1 ->
+            center
+
+        2 ->
+            [ ( 0, 0 ), ( 2, 2 ) ]
+
+        3 ->
+            [ ( 0, 0 ), ( 1, 1 ), ( 2, 2 ) ]
+
+        4 ->
+            corners
+
+        5 ->
+            corners ++ center
+
+        6 ->
+            corners ++ sides
+
+        7 ->
+            corners ++ sides ++ center
+
+        8 ->
+            corners ++ sides ++ [ ( 1, 0 ), ( 1, 2 ) ]
+
+        _ ->
+            []
 
 
 

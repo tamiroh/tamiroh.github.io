@@ -55,6 +55,7 @@ type alias Model =
     , boids : List Boid
     , pointer : Maybe Position
     , walked : Float
+    , eyes : List Eye
     }
 
 
@@ -70,6 +71,7 @@ init _ =
       , boids = []
       , pointer = Nothing
       , walked = 0
+      , eyes = []
       }
     , Cmd.batch
         [ Random.generate PatternGenerated Pattern.generator
@@ -80,6 +82,14 @@ init _ =
 
 
 -- UPDATE
+
+
+type alias Eye =
+    { x : Float
+    , y : Float
+    , born : Float
+    , life : Float
+    }
 
 
 type Content
@@ -106,6 +116,7 @@ type Msg
     | Resized Int Int
     | BoidsPlaced (List Boid)
     | PointerMoved Position
+    | EyeOpened (Maybe Eye)
 
 
 subscriptions : Model -> Sub Msg
@@ -172,7 +183,20 @@ update msg model =
             ( { model | pattern = Pattern.toText (patternColumns model.screen) (patternRows model.screen) pattern }, Cmd.none )
 
         Tick ->
-            ( model, Random.generate PatternGenerated Pattern.generator )
+            ( model
+            , Cmd.batch
+                [ Random.generate PatternGenerated Pattern.generator
+                , Random.generate EyeOpened (eyeGenerator model.screen model.time)
+                ]
+            )
+
+        EyeOpened opened ->
+            case opened of
+                Nothing ->
+                    ( model, Cmd.none )
+
+                Just eye ->
+                    ( { model | eyes = eye :: model.eyes }, Cmd.none )
 
         Frame delta ->
             ( { model
@@ -181,6 +205,7 @@ update msg model =
                 , pull = Motion.advance Motion.pullDuration delta model.pull
                 , boids = Boid.flock delta (field model.screen) model.pointer model.boids
                 , walked = model.walked + pace model * delta / 1000
+                , eyes = List.filter (\eye -> model.time - eye.born < eye.life) model.eyes
               }
             , Cmd.none
             )
@@ -292,6 +317,7 @@ view model =
         [ pageStyle model.lit
         , backgroundLayer model.lit
         , patternLayer model.lit model.pattern
+        , eyeLayer model.lit model.screen model.time model.eyes
         , boidLayer model.lit model.screen model.boids
         , groundLayer model.lit model.screen model.walked (pace model / walkerSpeed)
         , Html.div
@@ -388,6 +414,69 @@ cord lit dy =
             , SvgAttr.strokeWidth (String.fromFloat lineWidth)
             ]
             []
+        ]
+
+
+eyeLayer : Bool -> Screen -> Float -> List Eye -> Html msg
+eyeLayer lit screen now eyes =
+    Svg.svg
+        [ SvgAttr.width (String.fromFloat screen.width)
+        , SvgAttr.height (String.fromFloat screen.height)
+        , Attr.style "position" "fixed"
+        , Attr.style "inset" "0"
+        , Attr.style "pointer-events" "none"
+        ]
+        (List.filterMap (eyeView lit now) eyes)
+
+
+eyeView : Bool -> Float -> Eye -> Maybe (Svg msg)
+eyeView lit now eye =
+    let
+        open =
+            aperture now eye
+    in
+    if open < eyeShut then
+        Nothing
+
+    else
+        let
+            half =
+                eyeSpan / 2
+
+            spread =
+                eyeOpening / 2 * open
+        in
+        Just
+            (Svg.g
+                [ SvgAttr.transform
+                    ("translate(" ++ String.fromFloat eye.x ++ "," ++ String.fromFloat eye.y ++ ")")
+                , SvgAttr.stroke (ink lit)
+                , SvgAttr.strokeWidth (String.fromFloat lineWidth)
+                , SvgAttr.strokeLinejoin "round"
+                ]
+                [ Svg.path [ SvgAttr.d (lens half spread), SvgAttr.fill (paper lit) ] []
+                , Svg.circle
+                    [ SvgAttr.r (String.fromFloat (min (spread * 0.55) (half * 0.4)))
+                    , SvgAttr.fill (ink lit)
+                    , SvgAttr.stroke "none"
+                    ]
+                    []
+                ]
+            )
+
+
+lens : Float -> Float -> String
+lens half spread =
+    String.join " "
+        [ "M"
+        , String.fromFloat (negate half)
+        , "0 Q 0"
+        , String.fromFloat spread
+        , String.fromFloat half
+        , "0 Q 0"
+        , String.fromFloat (negate spread)
+        , String.fromFloat (negate half)
+        , "0 Z"
         ]
 
 
@@ -865,6 +954,59 @@ discRadius =
 thinkingDelay : Float
 thinkingDelay =
     420
+
+
+
+-- EYES
+
+
+eyeSpan : Float
+eyeSpan =
+    26
+
+
+eyeOpening : Float
+eyeOpening =
+    18
+
+
+eyeShut : Float
+eyeShut =
+    0.04
+
+
+eyeSnap : Float
+eyeSnap =
+    5
+
+
+eyeChance : Float
+eyeChance =
+    0.4
+
+
+eyeGenerator : Screen -> Float -> Random.Generator (Maybe Eye)
+eyeGenerator screen now =
+    Random.andThen
+        (\roll ->
+            if roll > eyeChance then
+                Random.constant Nothing
+
+            else
+                Random.map Just
+                    (Random.map3
+                        (\x y life -> { x = x, y = y, born = now, life = life })
+                        (Random.float 0 screen.width)
+                        (Random.float 0 screen.height)
+                        (Random.float 2400 4600)
+                    )
+        )
+        (Random.float 0 1)
+
+
+aperture : Float -> Eye -> Float
+aperture now eye =
+    min 1 (eyeSnap * sin (pi * clamp 0 1 ((now - eye.born) / eye.life)))
 
 
 

@@ -13,6 +13,8 @@ type alias Pose =
     { x : Float
     , ground : Float
     , swing : Float
+    , tilt : Float
+    , standing : Bool
     }
 
 
@@ -36,7 +38,16 @@ view ink paper stroke pose =
     Svg.g
         [ SvgAttr.transform
             (String.concat
-                [ "translate(", num pose.x, ",", num pose.ground, ") scale(", num scale, ")" ]
+                [ "translate("
+                , num pose.x
+                , ","
+                , num pose.ground
+                , ") rotate("
+                , num pose.tilt
+                , ") scale("
+                , num scale
+                , ")"
+                ]
             )
         , SvgAttr.fill "none"
         , SvgAttr.stroke ink
@@ -44,10 +55,22 @@ view ink paper stroke pose =
         , SvgAttr.strokeLinecap "round"
         , SvgAttr.strokeLinejoin "round"
         ]
-        [ Svg.path [ SvgAttr.d body, SvgAttr.fill paper ] []
-        , eye -130
-        , eye -25
-        , limb leftHip pose.swing leftLimb
+        (Svg.path [ SvgAttr.d body, SvgAttr.fill paper ] []
+            :: eye -130
+            :: eye -25
+            :: legs pose
+        )
+
+
+legs : Pose -> List (Svg msg)
+legs pose =
+    if pose.standing then
+        [ Svg.path [ SvgAttr.d leftStand ] []
+        , Svg.path [ SvgAttr.d rightStand ] []
+        ]
+
+    else
+        [ limb leftHip pose.swing leftLimb
         , limb rightHip (negate pose.swing) rightLimb
         ]
 
@@ -109,9 +132,19 @@ rightHip =
 
 leftLimb : String
 leftLimb =
-    "M -90 -150 L -150 0 L -200 -20"
+    "M -90 -150 L -132 -6 L -180 -20"
 
 
 rightLimb : String
 rightLimb =
-    "M 105 -150 L 165 -30 L 117 -6"
+    "M 105 -150 L 147 -6 L 99 8"
+
+
+leftStand : String
+leftStand =
+    "M -90 -150 L -90 0 L -140 0"
+
+
+rightStand : String
+rightStand =
+    "M 105 -150 L 105 0 L 55 0"

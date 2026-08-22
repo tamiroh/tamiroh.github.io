@@ -1,6 +1,6 @@
 module Boid exposing (Boid, Field, flock, generator, radius, wrapCopies)
 
-import Geometry exposing (Position, Screen, Vector, wrap)
+import Geometry exposing (Position, Screen, Vector, wrap, wrapDelta)
 import Obstacle exposing (Obstacle)
 import Random
 
@@ -432,18 +432,6 @@ pushOut screen object point =
 
     else
         point
-
-
-wrapDelta : Float -> Float -> Float
-wrapDelta span value =
-    if value > span / 2 then
-        value - span
-
-    else if value < negate (span / 2) then
-        value + span
-
-    else
-        value
 
 
 wrapCopies : Screen -> Boid -> List Position

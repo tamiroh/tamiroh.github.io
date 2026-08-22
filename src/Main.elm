@@ -4,7 +4,7 @@ import Boid exposing (Boid)
 import Browser
 import Browser.Dom
 import Browser.Events
-import Geometry exposing (Position, Screen, wrap)
+import Geometry exposing (Position, Screen, wrap, wrapDelta)
 import Grid exposing (Cell)
 import Html exposing (Html)
 import Html.Attributes as Attr
@@ -53,6 +53,7 @@ type alias Model =
     , screen : Screen
     , boids : List Boid
     , pointer : Maybe Position
+    , walked : Float
     }
 
 
@@ -67,6 +68,7 @@ init _ =
       , screen = { width = 0, height = 0 }
       , boids = []
       , pointer = Nothing
+      , walked = 0
       }
     , Cmd.batch
         [ Random.generate PatternGenerated Pattern.generator
@@ -177,6 +179,7 @@ update msg model =
                 , shock = Motion.advance (Motion.shockLifetime Grid.count) delta model.shock
                 , pull = Motion.advance Motion.pullDuration delta model.pull
                 , boids = Boid.flock delta (field model.screen) model.pointer model.boids
+                , walked = model.walked + pace model * delta / 1000
               }
             , Cmd.none
             )
@@ -204,6 +207,35 @@ update msg model =
 
         PointerMoved point ->
             ( { model | pointer = Just point }, Cmd.none )
+
+
+pace : Model -> Float
+pace model =
+    case model.pointer of
+        Nothing ->
+            walkerSpeed
+
+        Just ( px, py ) ->
+            let
+                aside =
+                    wrapDelta model.screen.width (strolled model.screen model.walked - px)
+
+                above =
+                    model.screen.height - Walker.height / 2 - py
+
+                span =
+                    sqrt (aside * aside + above * above)
+
+                near =
+                    max 0 (1 - span / walkerSense)
+
+                lean =
+                    negate (clamp -1 1 (aside / walkerFocus))
+            in
+            max 0
+                (walkerSpeed
+                    * (1 - near * walkerBrake * max 0 (negate lean) + near * walkerRush * max 0 lean)
+                )
 
 
 startGenerator : Cell -> Random.Generator Play
@@ -252,7 +284,7 @@ view model =
         , backgroundLayer model.lit
         , patternLayer model.lit model.pattern
         , boidLayer model.lit model.screen model.boids
-        , walkerLayer model.lit model.screen model.time
+        , walkerLayer model.lit model.screen model.walked (pace model / walkerSpeed)
         , Html.div
             [ Attr.style "position" "fixed"
             , Attr.style "inset" "0"
@@ -426,17 +458,20 @@ tooth lit midX midY =
         []
 
 
-walkerLayer : Bool -> Screen -> Float -> Html msg
-walkerLayer lit screen time =
+walkerLayer : Bool -> Screen -> Float -> Float -> Html msg
+walkerLayer lit screen walked rate =
     let
-        travel =
-            time * walkerSpeed / 1000
-
         here =
-            wrap screen.width (screen.width - travel)
+            strolled screen walked
+
+        hurry =
+            max 0 (rate - 1)
 
         swing =
-            sin (travel / walkerStep * pi) * walkerSwing
+            sin (walked / walkerStep * pi) * walkerSwing * min walkerFlail (1 + hurry * 0.4)
+
+        tilt =
+            negate (min walkerTilt (hurry * 3))
     in
     Svg.svg
         [ SvgAttr.width (String.fromFloat screen.width)
@@ -446,9 +481,24 @@ walkerLayer lit screen time =
         , Attr.style "pointer-events" "none"
         ]
         (List.map
-            (\x -> Walker.view (ink lit) (paper lit) lineWidth { x = x, ground = screen.height, swing = swing })
+            (\x ->
+                Walker.view (ink lit)
+                    (paper lit)
+                    lineWidth
+                    { x = x
+                    , ground = screen.height
+                    , swing = swing
+                    , tilt = tilt
+                    , standing = rate <= 0
+                    }
+            )
             (here :: seam screen.width here)
         )
+
+
+strolled : Screen -> Float -> Float
+strolled screen walked =
+    wrap screen.width (screen.width - walked)
 
 
 seam : Float -> Float -> List Float
@@ -849,6 +899,36 @@ walkerStep =
 walkerSwing : Float
 walkerSwing =
     10
+
+
+walkerSense : Float
+walkerSense =
+    220
+
+
+walkerRush : Float
+walkerRush =
+    4
+
+
+walkerFlail : Float
+walkerFlail =
+    2.4
+
+
+walkerTilt : Float
+walkerTilt =
+    12
+
+
+walkerFocus : Float
+walkerFocus =
+    40
+
+
+walkerBrake : Float
+walkerBrake =
+    1.8
 
 
 

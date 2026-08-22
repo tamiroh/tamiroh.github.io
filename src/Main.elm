@@ -1098,7 +1098,7 @@ noticed pointer eye =
 
 cursorRadius : Float
 cursorRadius =
-    6
+    11
 
 
 cursor : Bool -> Bool -> String
@@ -1107,42 +1107,82 @@ cursor lit active =
         edge =
             cursorRadius + lineWidth
 
-        drawing =
-            String.concat
-                [ "%3Csvg xmlns='http://www.w3.org/2000/svg' width='"
-                , String.fromFloat (edge * 2)
-                , "' height='"
-                , String.fromFloat (edge * 2)
-                , "'%3E%3Ccircle cx='"
-                , String.fromFloat edge
-                , "' cy='"
-                , String.fromFloat edge
-                , "' r='"
-                , String.fromFloat cursorRadius
-                , "' fill='"
-                , webColour
-                    (if active then
-                        ink lit
+        skin =
+            if active then
+                ink lit
 
-                     else
-                        paper lit
-                    )
-                , "' stroke='"
-                , webColour (ink lit)
-                , "' stroke-width='"
-                , String.fromFloat lineWidth
-                , "'/%3E%3C/svg%3E"
-                ]
+            else
+                paper lit
+
+        face =
+            if active then
+                paper lit
+
+            else
+                ink lit
     in
     String.concat
         [ "url(\"data:image/svg+xml,"
-        , drawing
-        , "\") "
-        , String.fromFloat edge
+        , "%3Csvg xmlns='http://www.w3.org/2000/svg' width='"
+        , num (edge * 2)
+        , "' height='"
+        , num (edge * 2)
+        , "'%3E%3Cg stroke='"
+        , webColour (ink lit)
+        , "' stroke-width='"
+        , num lineWidth
+        , "' stroke-linecap='round'%3E%3Ccircle cx='"
+        , num edge
+        , "' cy='"
+        , num edge
+        , "' r='"
+        , num cursorRadius
+        , "' fill='"
+        , webColour skin
+        , "'/%3E"
+        , wink face (edge - cursorRadius * 0.35) (edge - cursorRadius * 0.28)
+        , wink face (edge + cursorRadius * 0.35) (edge - cursorRadius * 0.28)
+        , "%3Cpath d='M "
+        , num (edge - cursorRadius * 0.42)
         , " "
-        , String.fromFloat edge
+        , num (edge + cursorRadius * 0.12)
+        , " Q "
+        , num edge
+        , " "
+        , num (edge + cursorRadius * 0.6)
+        , " "
+        , num (edge + cursorRadius * 0.42)
+        , " "
+        , num (edge + cursorRadius * 0.12)
+        , "' fill='none' stroke='"
+        , webColour face
+        , "'/%3E%3C/g%3E%3C/svg%3E"
+        , "\") "
+        , num edge
+        , " "
+        , num edge
         , ", auto"
         ]
+
+
+wink : String -> Float -> Float -> String
+wink colour x y =
+    String.concat
+        [ "%3Ccircle cx='"
+        , num x
+        , "' cy='"
+        , num y
+        , "' r='"
+        , num (cursorRadius * 0.13)
+        , "' fill='"
+        , webColour colour
+        , "' stroke='none'/%3E"
+        ]
+
+
+num : Float -> String
+num =
+    String.fromFloat
 
 
 webColour : String -> String

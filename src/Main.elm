@@ -12,6 +12,7 @@ import Html.Events
 import Json.Decode
 import Minesweeper
 import Motion exposing (Pull, Shock)
+import Obstacle
 import Othello
 import Pattern exposing (Pattern)
 import Process
@@ -182,7 +183,7 @@ update msg model =
                 | time = model.time + delta
                 , shock = Motion.advance (Motion.shockLifetime Grid.count) delta model.shock
                 , pull = Motion.advance Motion.pullDuration delta model.pull
-                , boids = Boid.flock delta model.screen (obstacle model.screen) model.pointer model.boids
+                , boids = Boid.flock delta (field model.screen) model.pointer model.boids
                 , bodies = Rigid.step delta model.screen model.bodies
               }
             , Cmd.none
@@ -198,7 +199,7 @@ update msg model =
             in
             ( { model | screen = screen }
             , Cmd.batch
-                [ Random.generate BoidsPlaced (Boid.generator screen (obstacle screen))
+                [ Random.generate BoidsPlaced (Boid.generator (field screen))
                 , Random.generate PatternGenerated Pattern.generator
                 ]
             )
@@ -679,12 +680,17 @@ position index =
     margin + spacing * toFloat index
 
 
-obstacle : Screen -> Rect
-obstacle screen =
-    { left = screen.width / 2 - boardSize / 2
-    , top = screen.height / 2 - boardSize / 2
-    , right = screen.width / 2 + boardSize / 2
-    , bottom = screen.height / 2 + boardSize / 2
+field : Screen -> Boid.Field
+field screen =
+    { screen = screen
+    , objects =
+        [ Obstacle.box
+            { left = screen.width / 2 - boardSize / 2
+            , top = screen.height / 2 - boardSize / 2
+            , right = screen.width / 2 + boardSize / 2
+            , bottom = screen.height / 2 + boardSize / 2
+            }
+        ]
     }
 
 

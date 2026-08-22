@@ -1,6 +1,7 @@
-module Boid exposing (Boid, flock, generator, radius, wrapCopies)
+module Boid exposing (Boid, Field, flock, generator, radius, wrapCopies)
 
-import Geometry exposing (Position, Rect, Screen, Vector)
+import Geometry exposing (Position, Screen, Vector)
+import Obstacle exposing (Obstacle)
 import Random
 
 
@@ -21,6 +22,12 @@ radius =
     5
 
 
+type alias Field =
+    { screen : Screen
+    , objects : List Obstacle
+    }
+
+
 
 -- SEED
 
@@ -35,23 +42,22 @@ seedAttempts =
     8
 
 
-count : Screen -> Rect -> Int
-count screen rect =
+count : Field -> Int
+count field =
     let
         blocked =
-            max 0 (min rect.right screen.width - max rect.left 0)
-                * max 0 (min rect.bottom screen.height - max rect.top 0)
+            List.sum (List.map (Obstacle.area field.screen) field.objects)
     in
-    clamp 6 24 (round ((screen.width * screen.height - blocked) / areaPerBoid))
+    clamp 6 24 (round ((field.screen.width * field.screen.height - blocked) / areaPerBoid))
 
 
-generator : Screen -> Rect -> Random.Generator (List Boid)
-generator screen rect =
-    Random.list (count screen rect) (single screen rect)
+generator : Field -> Random.Generator (List Boid)
+generator field =
+    Random.list (count field) (single field)
 
 
-single : Screen -> Rect -> Random.Generator Boid
-single screen rect =
+single : Field -> Random.Generator Boid
+single field =
     Random.map2
         (\( x, y ) heading ->
             { x = x
@@ -60,30 +66,26 @@ single screen rect =
             , vy = sin heading * slowest
             }
         )
-        (placeGenerator screen rect seedAttempts)
+        (placeGenerator field seedAttempts)
         (Random.float 0 (2 * pi))
 
 
-placeGenerator : Screen -> Rect -> Int -> Random.Generator Position
-placeGenerator screen rect attempts =
-    Random.map2 Tuple.pair (Random.float 0 screen.width) (Random.float 0 screen.height)
+placeGenerator : Field -> Int -> Random.Generator Position
+placeGenerator field attempts =
+    Random.map2 Tuple.pair (Random.float 0 field.screen.width) (Random.float 0 field.screen.height)
         |> Random.andThen
             (\point ->
-                if attempts <= 0 || clearOf rect point then
-                    Random.constant (confine screen rect point)
+                if attempts <= 0 || clearOf field.objects point then
+                    Random.constant (confine field point)
 
                 else
-                    placeGenerator screen rect (attempts - 1)
+                    placeGenerator field (attempts - 1)
             )
 
 
-clearOf : Rect -> Position -> Bool
-clearOf rect ( x, y ) =
-    let
-        reach =
-            boardClearance + radius
-    in
-    not (x > rect.left - reach && x < rect.right + reach && y > rect.top - reach && y < rect.bottom + reach)
+clearOf : List Obstacle -> Position -> Bool
+clearOf objects point =
+    List.all (\object -> not (Obstacle.contains (Obstacle.grow (clearance + radius) object) point)) objects
 
 
 
@@ -95,25 +97,27 @@ frameMillis =
     1000 / 60
 
 
-roomy : Screen -> Rect -> Bool
-roomy screen rect =
-    rect.right - rect.left < screen.width || rect.bottom - rect.top < screen.height
+roomy : Field -> Bool
+roomy field =
+    List.all
+        (\object -> Obstacle.width object < field.screen.width || Obstacle.height object < field.screen.height)
+        field.objects
 
 
-flock : Float -> Screen -> Rect -> Maybe Position -> List Boid -> List Boid
-flock delta screen rect pointer boids =
-    if roomy screen rect then
-        List.map (steer (min 2 (delta / frameMillis)) screen rect pointer boids) boids
+flock : Float -> Field -> Maybe Position -> List Boid -> List Boid
+flock delta field pointer boids =
+    if roomy field then
+        List.map (steer (min 2 (delta / frameMillis)) field pointer boids) boids
 
     else
         boids
 
 
-steer : Float -> Screen -> Rect -> Maybe Position -> List Boid -> Boid -> Boid
-steer dt screen rect pointer boids boid =
+steer : Float -> Field -> Maybe Position -> List Boid -> Boid -> Boid
+steer dt field pointer boids boid =
     let
         near =
-            neighborsOf screen boid boids
+            neighborsOf field.screen boid boids
 
         ( sx, sy ) =
             separation near
@@ -125,10 +129,10 @@ steer dt screen rect pointer boids boid =
             cohesion near
 
         ( bx, by ) =
-            avoid screen rect boid
+            avoid field boid
 
         ( fx, fy ) =
-            flee screen pointer boid
+            flee field.screen pointer boid
 
         ( vx, vy ) =
             clampSpeed
@@ -137,7 +141,7 @@ steer dt screen rect pointer boids boid =
                 )
 
         ( x, y ) =
-            confine screen rect ( boid.x + vx * dt, boid.y + vy * dt )
+            confine field ( boid.x + vx * dt, boid.y + vy * dt )
     in
     { x = x, y = y, vx = vx, vy = vy }
 
@@ -289,45 +293,53 @@ avoidWeight =
     1.6
 
 
-boardClearance : Float
-boardClearance =
+clearance : Float
+clearance =
     34
 
 
-avoid : Screen -> Rect -> Boid -> Vector
-avoid screen rect boid =
+avoid : Field -> Boid -> Vector
+avoid field boid =
+    List.foldl
+        (\object ( ax, ay ) ->
+            let
+                ( px, py ) =
+                    repel field.screen object boid
+            in
+            ( ax + px, ay + py )
+        )
+        ( 0, 0 )
+        field.objects
+
+
+repel : Screen -> Obstacle -> Boid -> Vector
+repel screen object boid =
     let
+        here =
+            ( boid.x, boid.y )
+
+        ( nx, ny ) =
+            Obstacle.nearest object here
+
         dx =
-            boid.x - clamp rect.left rect.right boid.x
+            boid.x - nx
 
         dy =
-            boid.y - clamp rect.top rect.bottom boid.y
+            boid.y - ny
 
         apart =
             sqrt (dx * dx + dy * dy)
 
         reach =
-            boardClearance + radius
+            clearance + radius
     in
     if apart >= reach then
         ( 0, 0 )
 
     else if apart == 0 then
-        case nearestExit screen rect boid.x boid.y of
-            Just Left ->
-                ( -1, 0 )
-
-            Just Right ->
-                ( 1, 0 )
-
-            Just Top ->
-                ( 0, -1 )
-
-            Just Bottom ->
-                ( 0, 1 )
-
-            Nothing ->
-                ( 0, 0 )
+        Obstacle.escape screen object here
+            |> Maybe.map Obstacle.direction
+            |> Maybe.withDefault ( 0, 0 )
 
     else
         let
@@ -338,44 +350,6 @@ avoid screen rect boid =
                 1 - apart / reach
         in
         ( ux * push, uy * push )
-
-
-grown : Rect -> Rect
-grown rect =
-    { left = rect.left - radius
-    , top = rect.top - radius
-    , right = rect.right + radius
-    , bottom = rect.bottom + radius
-    }
-
-
-type Side
-    = Left
-    | Right
-    | Top
-    | Bottom
-
-
-nearestExit : Screen -> Rect -> Float -> Float -> Maybe Side
-nearestExit screen rect x y =
-    let
-        sideways =
-            if rect.right - rect.left < screen.width then
-                [ ( x - rect.left, Left ), ( rect.right - x, Right ) ]
-
-            else
-                []
-
-        upright =
-            if rect.bottom - rect.top < screen.height then
-                [ ( y - rect.top, Top ), ( rect.bottom - y, Bottom ) ]
-
-            else
-                []
-    in
-    List.sortBy Tuple.first (sideways ++ upright)
-        |> List.head
-        |> Maybe.map Tuple.second
 
 
 fleeWeight : Float
@@ -436,40 +410,28 @@ normalize ( x, y ) =
 -- TORUS
 
 
-confine : Screen -> Rect -> Position -> Position
-confine screen rect point =
+confine : Field -> Position -> Position
+confine field point =
     let
         ( x, y ) =
-            pushOut screen rect point
+            List.foldl (pushOut field.screen) point field.objects
     in
-    ( wrap screen.width x, wrap screen.height y )
+    ( wrap field.screen.width x, wrap field.screen.height y )
 
 
-pushOut : Screen -> Rect -> Position -> Position
-pushOut screen outer ( x, y ) =
+pushOut : Screen -> Obstacle -> Position -> Position
+pushOut screen object point =
     let
-        rect =
-            grown outer
+        solid =
+            Obstacle.grow radius object
     in
-    if x > rect.left && x < rect.right && y > rect.top && y < rect.bottom then
-        case nearestExit screen rect x y of
-            Just Left ->
-                ( rect.left, y )
-
-            Just Right ->
-                ( rect.right, y )
-
-            Just Top ->
-                ( x, rect.top )
-
-            Just Bottom ->
-                ( x, rect.bottom )
-
-            Nothing ->
-                ( x, y )
+    if Obstacle.contains solid point then
+        Obstacle.escape screen solid point
+            |> Maybe.map (\side -> Obstacle.edge solid side point)
+            |> Maybe.withDefault point
 
     else
-        ( x, y )
+        point
 
 
 wrap : Float -> Float -> Float

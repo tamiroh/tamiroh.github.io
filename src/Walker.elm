@@ -20,7 +20,7 @@ type alias Pose =
 
 scale : Float
 scale =
-    0.1
+    0.07
 
 
 height : Float

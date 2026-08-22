@@ -104,7 +104,7 @@ type Msg
     | CordPulled
     | GameStarted Play
     | OthelloResponded
-    | FramePassed Float
+    | AnimationFramePassed Float
     | SecondPassed
     | PointerMoved Position
     | GotViewport Browser.Dom.Viewport
@@ -118,7 +118,7 @@ subscriptions : Model -> Sub Msg
 subscriptions _ =
     Sub.batch
         [ Time.every 1000 (\_ -> SecondPassed)
-        , Browser.Events.onAnimationFrameDelta FramePassed
+        , Browser.Events.onAnimationFrameDelta AnimationFramePassed
         , Browser.Events.onResize WindowResized
         , Browser.Events.onMouseMove pointerDecoder
         ]
@@ -139,6 +139,7 @@ positionDecoder =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        -- PLAYER
         CellClicked cell ->
             case model.play of
                 Fresh ->
@@ -162,6 +163,7 @@ update msg model =
         CordPulled ->
             ( { model | theme = toggle model.theme, pull = Just { elapsed = 0 } }, Cmd.none )
 
+        -- GAME
         GameStarted play ->
             ( { model | play = play }, Cmd.none )
 
@@ -177,7 +179,8 @@ update msg model =
                 _ ->
                     ( model, Cmd.none )
 
-        FramePassed delta ->
+        -- CLOCK
+        AnimationFramePassed delta ->
             ( { model
                 | time = model.time + delta
                 , shock = Motion.advance (Motion.shockLifetime Grid.count) delta model.shock
@@ -197,6 +200,7 @@ update msg model =
                 ]
             )
 
+        -- ENVIRONMENT
         PointerMoved point ->
             ( { model | pointer = Just point }, Cmd.none )
 
@@ -215,6 +219,7 @@ update msg model =
         WindowResized width height ->
             ( { model | screen = { width = toFloat width, height = toFloat height } }, Cmd.none )
 
+        -- RANDOM
         PatternGenerated pattern ->
             ( { model | pattern = Pattern.toText (patternColumns model.screen) (patternRows model.screen) pattern }, Cmd.none )
 

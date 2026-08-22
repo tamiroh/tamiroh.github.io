@@ -289,7 +289,7 @@ struck cell model =
 view : Model -> Html Msg
 view model =
     Html.div []
-        [ pageStyle
+        [ pageStyle model.lit
         , backgroundLayer model.lit
         , patternLayer model.lit model.pattern
         , boidLayer model.lit model.screen model.boids
@@ -321,11 +321,20 @@ boardLayer model =
         [ board model ]
 
 
-pageStyle : Html msg
-pageStyle =
+pageStyle : Bool -> Html msg
+pageStyle lit =
     Html.node "style"
         []
-        [ Html.text "html,body{margin:0;overflow:hidden;overscroll-behavior:none;user-select:none;-webkit-user-select:none}" ]
+        [ Html.text
+            (String.concat
+                [ "html,body{margin:0;overflow:hidden;overscroll-behavior:none"
+                , ";user-select:none;-webkit-user-select:none"
+                , ";cursor:"
+                , cursor lit False
+                , "}"
+                ]
+            )
+        ]
 
 
 backgroundLayer : Bool -> Html msg
@@ -345,7 +354,7 @@ cordLayer lit dy =
         [ Attr.style "position" "fixed"
         , Attr.style "top" "0"
         , Attr.style "right" (String.fromFloat cordInset ++ "px")
-        , Attr.style "cursor" "pointer"
+        , Attr.style "cursor" (cursor lit True)
         , Attr.style "user-select" "none"
         , Html.Events.onClick Pulled
         ]
@@ -616,7 +625,7 @@ cellView model pointer cell =
                 )
             , SvgAttr.stroke (ink model.lit)
             , SvgAttr.rx (String.fromFloat cellRadius)
-            , SvgAttr.cursor "pointer"
+            , SvgAttr.cursor (cursor model.lit True)
             , Svg.Events.onClick (Clicked cell)
             ]
             []
@@ -856,6 +865,64 @@ discRadius =
 thinkingDelay : Float
 thinkingDelay =
     420
+
+
+
+-- CURSOR
+
+
+cursorRadius : Float
+cursorRadius =
+    6
+
+
+cursor : Bool -> Bool -> String
+cursor lit active =
+    let
+        edge =
+            cursorRadius + lineWidth
+
+        drawing =
+            String.concat
+                [ "%3Csvg xmlns='http://www.w3.org/2000/svg' width='"
+                , String.fromFloat (edge * 2)
+                , "' height='"
+                , String.fromFloat (edge * 2)
+                , "'%3E%3Ccircle cx='"
+                , String.fromFloat edge
+                , "' cy='"
+                , String.fromFloat edge
+                , "' r='"
+                , String.fromFloat cursorRadius
+                , "' fill='"
+                , webColour
+                    (if active then
+                        ink lit
+
+                     else
+                        paper lit
+                    )
+                , "' stroke='"
+                , webColour (ink lit)
+                , "' stroke-width='"
+                , String.fromFloat lineWidth
+                , "'/%3E%3C/svg%3E"
+                ]
+    in
+    String.concat
+        [ "url(\"data:image/svg+xml,"
+        , drawing
+        , "\") "
+        , String.fromFloat edge
+        , " "
+        , String.fromFloat edge
+        , ", auto"
+        ]
+
+
+webColour : String -> String
+webColour =
+    String.replace "#" "%23"
 
 
 

@@ -613,7 +613,7 @@ cellView model pointer cell =
                     paper model.lit
                 )
             , SvgAttr.stroke (ink model.lit)
-            , SvgAttr.shapeRendering "crispEdges"
+            , SvgAttr.rx (String.fromFloat cellRadius)
             , SvgAttr.cursor "pointer"
             , Svg.Events.onClick (Clicked cell)
             ]
@@ -722,6 +722,11 @@ gap =
 cellSize : Float
 cellSize =
     spacing - gap
+
+
+cellRadius : Float
+cellRadius =
+    3
 
 
 margin : Float

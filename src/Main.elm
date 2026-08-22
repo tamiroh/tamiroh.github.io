@@ -4,7 +4,7 @@ import Boid exposing (Boid)
 import Browser
 import Browser.Dom
 import Browser.Events
-import Geometry exposing (Position, Rect, Screen)
+import Geometry exposing (Position, Screen)
 import Grid exposing (Cell)
 import Html exposing (Html)
 import Html.Attributes as Attr
@@ -44,7 +44,7 @@ main =
 
 type alias Model =
     { play : Play
-    , pattern : List String
+    , pattern : String
     , shock : Maybe Shock
     , time : Float
     , lit : Bool
@@ -58,7 +58,7 @@ type alias Model =
 init : () -> ( Model, Cmd Msg )
 init _ =
     ( { play = Fresh
-      , pattern = []
+      , pattern = ""
       , shock = Nothing
       , time = 0
       , lit = True
@@ -76,6 +76,12 @@ init _ =
 
 
 -- UPDATE
+
+
+type Content
+    = Bare
+    | Face Minesweeper.Face
+    | Stone Othello.Disc
 
 
 type Play
@@ -159,7 +165,7 @@ update msg model =
                     ( model, Cmd.none )
 
         PatternGenerated pattern ->
-            ( { model | pattern = Pattern.toRows (patternColumns model.screen) (patternRows model.screen) pattern }, Cmd.none )
+            ( { model | pattern = Pattern.toText (patternColumns model.screen) (patternRows model.screen) pattern }, Cmd.none )
 
         Tick ->
             ( model, Random.generate PatternGenerated Pattern.generator )
@@ -418,8 +424,8 @@ tooth lit midX midY =
         []
 
 
-patternLayer : Bool -> List String -> Html msg
-patternLayer lit rows =
+patternLayer : Bool -> String -> Html msg
+patternLayer lit text =
     Html.pre
         [ Attr.style "position" "fixed"
         , Attr.style "inset" "0"
@@ -432,7 +438,7 @@ patternLayer lit rows =
         , Attr.style "pointer-events" "none"
         , Attr.style "user-select" "none"
         ]
-        [ Html.text (String.join "\n" rows) ]
+        [ Html.text text ]
 
 
 board : Model -> Svg Msg
@@ -455,10 +461,13 @@ cellView model cell =
         ( dx, dy ) =
             Motion.offset Grid.count model.shock model.time cell
 
+        seen =
+            content model cell
+
         opened =
-            case model.play of
-                Mines game ->
-                    Minesweeper.faceOf cell game /= Minesweeper.Hidden
+            case seen of
+                Face face ->
+                    face /= Minesweeper.Hidden
 
                 _ ->
                     False
@@ -488,25 +497,38 @@ cellView model cell =
         , Svg.Events.onClick (Clicked cell)
         ]
         []
-        :: cellMarks model cell x y
+        :: cellMarks model.lit seen x y
 
 
-cellMarks : Model -> Cell -> Float -> Float -> List (Svg msg)
-cellMarks model cell x y =
+content : Model -> Cell -> Content
+content model cell =
     case model.play of
         Fresh ->
-            []
+            Bare
 
         Mines game ->
-            marks model.lit (Minesweeper.faceOf cell game) x y
+            Face (Minesweeper.faceOf cell game)
 
         Discs othello ->
             case Othello.discAt cell othello of
                 Nothing ->
-                    []
+                    Bare
 
                 Just side ->
-                    [ disc model.lit side x y ]
+                    Stone side
+
+
+cellMarks : Bool -> Content -> Float -> Float -> List (Svg msg)
+cellMarks lit seen x y =
+    case seen of
+        Bare ->
+            []
+
+        Face face ->
+            marks lit face x y
+
+        Stone side ->
+            [ disc lit side x y ]
 
 
 disc : Bool -> Othello.Disc -> Float -> Float -> Svg msg

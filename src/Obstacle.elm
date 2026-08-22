@@ -1,6 +1,5 @@
 module Obstacle exposing
     ( Obstacle
-    , Side
     , area
     , box
     , contains

@@ -1,4 +1,4 @@
-module Pattern exposing (Pattern, generator, toRows)
+module Pattern exposing (Pattern, generator, toText)
 
 import Random
 
@@ -58,11 +58,12 @@ angle =
 -- RENDER
 
 
-toRows : Int -> Int -> Pattern -> List String
-toRows columns rows pattern =
-    List.map
-        (\y -> String.concat (List.map (\x -> charAt columns rows pattern x y) (List.range 0 (columns - 1))))
-        (List.range 0 (rows - 1))
+toText : Int -> Int -> Pattern -> String
+toText columns rows pattern =
+    List.range 0 (rows - 1)
+        |> List.map
+            (\y -> String.concat (List.map (\x -> charAt columns rows pattern x y) (List.range 0 (columns - 1))))
+        |> String.join "\n"
 
 
 charAt : Int -> Int -> Pattern -> Int -> Int -> String

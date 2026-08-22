@@ -17,6 +17,7 @@ type Board
     = Board
         { discs : Dict Cell Disc
         , turn : Disc
+        , over : Bool
         }
 
 
@@ -49,6 +50,7 @@ new =
                 , ( ( middle - 1, middle ), Black )
                 ]
         , turn = human
+        , over = False
         }
 
 
@@ -81,14 +83,22 @@ respond (Board board) =
 
 settle : Dict Cell Disc -> Disc -> Board
 settle discs next =
+    let
+        mine =
+            legalMoves next discs
+
+        theirs =
+            legalMoves (other next) discs
+    in
     Board
         { discs = discs
         , turn =
-            if List.isEmpty (legalMoves next discs) then
+            if List.isEmpty mine then
                 other next
 
             else
                 next
+        , over = List.isEmpty mine && List.isEmpty theirs
         }
 
 
@@ -165,12 +175,12 @@ discAt cell (Board board) =
 
 thinking : Board -> Bool
 thinking (Board board) =
-    board.turn == computer && not (isOver (Board board))
+    board.turn == computer && not board.over
 
 
 isOver : Board -> Bool
 isOver (Board board) =
-    List.isEmpty (legalMoves Black board.discs) && List.isEmpty (legalMoves White board.discs)
+    board.over
 
 
 

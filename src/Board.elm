@@ -10,6 +10,7 @@ import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
 import Svg.Events
 import Transform
+import Wobble
 
 
 
@@ -311,40 +312,16 @@ displacement shock ( column, row ) =
 -- DRIFT
 
 
-driftAmplitude : Float
-driftAmplitude =
-    1.2
-
-
 driftAt : Scene -> Cell -> Vector
-driftAt scene cell =
+driftAt scene ( column, row ) =
     let
         ( shockX, shockY ) =
-            displacement scene.shock cell
+            displacement scene.shock ( column, row )
 
         ( driftX, driftY ) =
-            wander scene.elapsed cell
+            Wobble.at scene.elapsed (toFloat (column * 3 + row * 5))
     in
     ( shockX + driftX, shockY + driftY )
-
-
-wander : Millis -> Cell -> Vector
-wander time ( column, row ) =
-    let
-        seconds =
-            time / 1000
-
-        seed =
-            toFloat (column * 3 + row * 5)
-    in
-    ( wobble seconds seed 1.3 2.7
-    , wobble seconds (seed * 1.7 + 2.1) 1.1 2.3
-    )
-
-
-wobble : Float -> Float -> Float -> Float -> Float
-wobble seconds seed slow fast =
-    driftAmplitude * (sin (seconds * slow + seed) + 0.5 * sin (seconds * fast + seed * 1.9))
 
 
 

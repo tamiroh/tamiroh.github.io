@@ -27,8 +27,10 @@ import Svg.Attributes as SvgAttr
 import Task
 import Time
 import Torus exposing (Torus)
+import Transform
 import Walker exposing (Walker)
 import Wallpaper exposing (Pattern, Rendered)
+import Wobble
 
 
 
@@ -212,6 +214,7 @@ update msg model =
                 , boids = Boid.step delta (field model.screen) model.pointer model.boids
                 , walkers = List.map (Walker.step delta (Torus.around model.screen) (groundLevel model.screen) model.pointer) model.walkers
                 , eyes = List.filterMap (Eye.step model.elapsed model.pointer) model.eyes
+                , blocks = List.map (Field.spin delta) model.blocks
               }
             , Cmd.none
             )
@@ -359,7 +362,7 @@ view model =
         , backgroundLayer model.theme
         , Wallpaper.view wallpaperLook model.wallpaper
         , eyeLayer model.theme model.screen model.elapsed model.eyes
-        , blockLayer model.theme model.screen model.blocks
+        , blockLayer model.theme model.screen model.elapsed model.blocks
         , boidLayer model.theme model.screen model.boids
         , groundLayer model.theme model.screen model.walkers
         , Html.div
@@ -398,12 +401,20 @@ eyeLayer theme screen now eyes =
         (List.filterMap (Eye.view (look theme) now) eyes)
 
 
-blockLayer : Theme -> Screen -> List Obstacle -> Html msg
-blockLayer theme screen blocks =
+blockLayer : Theme -> Screen -> Millis -> List Obstacle -> Html msg
+blockLayer theme screen now blocks =
     let
         corner : Position -> String
         corner ( x, y ) =
             String.fromFloat x ++ "," ++ String.fromFloat y
+
+        wobbleSeed : Obstacle -> Float
+        wobbleSeed block =
+            let
+                ( mx, my ) =
+                    Field.middle block
+            in
+            mx * 0.1 + my * 0.17
 
         blockView : Obstacle -> Svg msg
         blockView block =
@@ -413,6 +424,7 @@ blockLayer theme screen blocks =
                 , SvgAttr.stroke (ink theme)
                 , SvgAttr.strokeWidth (String.fromFloat lineWidth)
                 , SvgAttr.strokeLinejoin "round"
+                , SvgAttr.transform (Transform.translate (Wobble.at now (wobbleSeed block)))
                 ]
                 []
     in

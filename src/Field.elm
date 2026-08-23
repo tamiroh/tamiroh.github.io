@@ -1,6 +1,7 @@
-module Field exposing (Field, Obstacle, around, blocked, expel, fits, heart, outline, repel, roomy, square, triangle)
+module Field exposing (Field, Obstacle, around, blocked, expel, fits, heart, middle, outline, repel, roomy, spin, square, triangle)
 
 import Geometry exposing (Position, Vector)
+import Millis exposing (Millis)
 import Screen exposing (Screen)
 
 
@@ -226,6 +227,42 @@ grow margin object =
                         unit ( x - mx, y - my )
                 in
                 ( x + ux * margin, y + uy * margin )
+            )
+            (outline object)
+        )
+
+
+spinRate : Float
+spinRate =
+    pi / 3
+
+
+spin : Millis -> Obstacle -> Obstacle
+spin delta object =
+    let
+        angle =
+            spinRate * delta / 1000
+
+        ( mx, my ) =
+            middle object
+
+        c =
+            cos angle
+
+        s =
+            sin angle
+    in
+    Obstacle
+        (List.map
+            (\( x, y ) ->
+                let
+                    dx =
+                        x - mx
+
+                    dy =
+                        y - my
+                in
+                ( mx + dx * c - dy * s, my + dx * s + dy * c )
             )
             (outline object)
         )

@@ -295,6 +295,17 @@ startShock cell model =
 
 
 
+-- DECODE
+
+
+positionDecoder : Json.Decode.Decoder Position
+positionDecoder =
+    Json.Decode.map2 Tuple.pair
+        (Json.Decode.field "clientX" Json.Decode.float)
+        (Json.Decode.field "clientY" Json.Decode.float)
+
+
+
 -- SUBSCRIPTIONS
 
 
@@ -311,13 +322,6 @@ subscriptions _ =
         , Browser.Events.onResize WindowResized
         , Browser.Events.onMouseMove pointerDecoder
         ]
-
-
-positionDecoder : Json.Decode.Decoder Position
-positionDecoder =
-    Json.Decode.map2 Tuple.pair
-        (Json.Decode.field "clientX" Json.Decode.float)
-        (Json.Decode.field "clientY" Json.Decode.float)
 
 
 

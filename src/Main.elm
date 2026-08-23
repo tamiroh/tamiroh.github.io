@@ -126,29 +126,6 @@ type Msg
     | EyeOpened (Maybe Eye)
 
 
-blockLimit : Int
-blockLimit =
-    12
-
-
-blockSpan : Float
-blockSpan =
-    54
-
-
-blockGenerator : Position -> Random.Generator Obstacle
-blockGenerator point =
-    Random.uniform (Field.triangle point blockSpan)
-        [ Field.heart point blockSpan
-        , Field.square point blockSpan
-        ]
-
-
-pointerFade : Millis
-pointerFade =
-    350
-
-
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     let
@@ -251,15 +228,37 @@ update msg model =
             ( { model | pointer = Just point }, Cmd.none )
 
         FieldClicked point ->
-            ( model, Random.generate BlockPlaced (blockGenerator point) )
+            let
+                blockSpan : Float
+                blockSpan =
+                    54
+
+                blockGenerator : Random.Generator Obstacle
+                blockGenerator =
+                    Random.uniform (Field.triangle point blockSpan)
+                        [ Field.heart point blockSpan
+                        , Field.square point blockSpan
+                        ]
+            in
+            ( model, Random.generate BlockPlaced blockGenerator )
 
         TouchEnded ->
+            let
+                pointerFade : Millis
+                pointerFade =
+                    350
+            in
             ( model, Task.perform (\_ -> PointerLeft) (Process.sleep pointerFade) )
 
         PointerLeft ->
             ( { model | pointer = Nothing }, Cmd.none )
 
         BlockPlaced block ->
+            let
+                blockLimit : Int
+                blockLimit =
+                    12
+            in
             ( { model | blocks = List.take blockLimit (block :: model.blocks) }, Cmd.none )
 
         GotViewport viewport ->

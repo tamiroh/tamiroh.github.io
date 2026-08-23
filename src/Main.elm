@@ -1,6 +1,7 @@
 module Main exposing (main)
 
 import Bird
+import Board
 import Boid exposing (Boid)
 import Browser
 import Browser.Dom
@@ -9,7 +10,7 @@ import Cord
 import Cursor
 import Eye exposing (Eye)
 import Field exposing (Field)
-import Geometry exposing (Position, Screen, Vector)
+import Geometry exposing (Position, Screen)
 import Grid exposing (Cell)
 import Html exposing (Html)
 import Html.Attributes as Attr
@@ -22,10 +23,8 @@ import Othello
 import Pattern exposing (Pattern)
 import Process
 import Random
-import Skull
 import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
-import Svg.Events
 import Task
 import Time
 import Walker exposing (Walker)
@@ -89,12 +88,6 @@ type Play
     = Fresh
     | Mines Minesweeper.Game
     | Discs Othello.Board
-
-
-type Content
-    = Bare
-    | Face Minesweeper.Face
-    | Stone Othello.Disc
 
 
 over : Play -> Bool
@@ -305,6 +298,38 @@ view model =
         ]
 
 
+contentAt : Model -> Cell -> Board.Content
+contentAt model cell =
+    case model.play of
+        Fresh ->
+            Board.Bare
+
+        Mines game ->
+            case Minesweeper.faceOf cell game of
+                Minesweeper.Hidden ->
+                    Board.Bare
+
+                Minesweeper.Blank ->
+                    Board.Open Board.Blank
+
+                Minesweeper.Count count ->
+                    Board.Open (Board.Pips count)
+
+                Minesweeper.Mine ->
+                    Board.Open Board.Mine
+
+        Discs othello ->
+            case Othello.discAt cell othello of
+                Nothing ->
+                    Board.Bare
+
+                Just Othello.Black ->
+                    Board.Piece Board.Dark
+
+                Just Othello.White ->
+                    Board.Piece Board.Light
+
+
 boardLayer : Model -> Html Msg
 boardLayer model =
     Html.div
@@ -316,7 +341,17 @@ boardLayer model =
                 "auto"
             )
         ]
-        [ board model ]
+        [ Board.view
+            { ink = ink model.theme
+            , paper = paper model.theme
+            , stroke = lineWidth
+            , screen = model.screen
+            , pointer = model.pointer
+            , drift = Motion.offset Grid.count model.shock model.elapsed
+            , content = contentAt model
+            , click = CellClicked
+            }
+        ]
 
 
 pageStyle : Theme -> Html msg
@@ -431,159 +466,6 @@ patternLayer theme text =
         [ Html.text text ]
 
 
-board : Model -> Svg Msg
-board model =
-    Svg.svg
-        [ SvgAttr.width (String.fromFloat boardSize)
-        , SvgAttr.height (String.fromFloat boardSize)
-        , SvgAttr.viewBox ("0 0 " ++ String.fromFloat boardSize ++ " " ++ String.fromFloat boardSize)
-        , SvgAttr.style "overflow: visible"
-        ]
-        (List.concatMap (cellView model (pointerOnBoard model)) Grid.cells)
-
-
-cellView : Model -> Maybe Position -> Cell -> List (Svg Msg)
-cellView model pointer cell =
-    let
-        ( column, row ) =
-            cell
-
-        hovered =
-            hover pointer cell
-
-        ( shiftX, shiftY ) =
-            hovered.shift
-
-        ( driftX, driftY ) =
-            Motion.offset Grid.count model.shock model.elapsed cell
-
-        ( dx, dy ) =
-            ( driftX + shiftX, driftY + shiftY )
-
-        seen =
-            content model cell
-
-        opened =
-            case seen of
-                Face face ->
-                    face /= Minesweeper.Hidden
-
-                _ ->
-                    False
-
-        x =
-            position column + gap / 2 + dx
-
-        y =
-            position row + gap / 2 + dy
-
-        size =
-            hovered.scale
-    in
-    [ Svg.g
-        [ SvgAttr.transform (about (x + cellSize / 2) (y + cellSize / 2) size)
-        , SvgAttr.strokeWidth (String.fromFloat (lineWidth / size))
-        ]
-        (Svg.rect
-            [ SvgAttr.x (String.fromFloat x)
-            , SvgAttr.y (String.fromFloat y)
-            , SvgAttr.width (String.fromFloat cellSize)
-            , SvgAttr.height (String.fromFloat cellSize)
-            , SvgAttr.fill
-                (if opened then
-                    ink model.theme
-
-                 else
-                    paper model.theme
-                )
-            , SvgAttr.stroke (ink model.theme)
-            , SvgAttr.rx (String.fromFloat cellRadius)
-            , SvgAttr.cursor (Cursor.css (ink model.theme) (paper model.theme) lineWidth True)
-            , Svg.Events.onClick (CellClicked cell)
-            ]
-            []
-            :: cellMarks model.theme seen x y
-        )
-    ]
-
-
-content : Model -> Cell -> Content
-content model cell =
-    case model.play of
-        Fresh ->
-            Bare
-
-        Mines game ->
-            Face (Minesweeper.faceOf cell game)
-
-        Discs othello ->
-            case Othello.discAt cell othello of
-                Nothing ->
-                    Bare
-
-                Just side ->
-                    Stone side
-
-
-cellMarks : Theme -> Content -> Float -> Float -> List (Svg msg)
-cellMarks theme seen x y =
-    case seen of
-        Bare ->
-            []
-
-        Face face ->
-            marks theme face x y
-
-        Stone side ->
-            [ disc theme side x y ]
-
-
-disc : Theme -> Othello.Disc -> Float -> Float -> Svg msg
-disc theme side x y =
-    Svg.circle
-        [ SvgAttr.cx (String.fromFloat (x + cellSize / 2))
-        , SvgAttr.cy (String.fromFloat (y + cellSize / 2))
-        , SvgAttr.r (String.fromFloat discRadius)
-        , SvgAttr.fill
-            (case side of
-                Othello.Black ->
-                    ink theme
-
-                Othello.White ->
-                    paper theme
-            )
-        , SvgAttr.stroke (ink theme)
-        ]
-        []
-
-
-marks : Theme -> Minesweeper.Face -> Float -> Float -> List (Svg msg)
-marks theme face x y =
-    case face of
-        Minesweeper.Hidden ->
-            []
-
-        Minesweeper.Blank ->
-            []
-
-        Minesweeper.Count count ->
-            List.map (pip theme x y) (pipCells count)
-
-        Minesweeper.Mine ->
-            Skull.view (ink theme) (paper theme) cellSize x y
-
-
-pip : Theme -> Float -> Float -> ( Int, Int ) -> Svg msg
-pip theme x y ( column, row ) =
-    Svg.circle
-        [ SvgAttr.cx (String.fromFloat (x + pipOffset column))
-        , SvgAttr.cy (String.fromFloat (y + pipOffset row))
-        , SvgAttr.r (String.fromFloat pipRadius)
-        , SvgAttr.fill (paper theme)
-        ]
-        []
-
-
 
 -- LAYOUT
 
@@ -593,127 +475,15 @@ lineWidth =
     2
 
 
-spacing : Float
-spacing =
-    48
-
-
-gap : Float
-gap =
-    9
-
-
-cellSize : Float
-cellSize =
-    spacing - gap
-
-
-cellRadius : Float
-cellRadius =
-    3
-
-
-margin : Float
-margin =
-    8
-
-
-boardSize : Float
-boardSize =
-    spacing * toFloat Grid.count + margin * 2
-
-
-position : Int -> Float
-position index =
-    margin + spacing * toFloat index
-
-
 field : Screen -> Field
 field screen =
     Field.around screen
-        [ { left = screen.width / 2 - boardSize / 2
-          , top = screen.height / 2 - boardSize / 2
-          , right = screen.width / 2 + boardSize / 2
-          , bottom = screen.height / 2 + boardSize / 2
+        [ { left = screen.width / 2 - Board.size / 2
+          , top = screen.height / 2 - Board.size / 2
+          , right = screen.width / 2 + Board.size / 2
+          , bottom = screen.height / 2 + Board.size / 2
           }
         ]
-
-
-about : Float -> Float -> Float -> String
-about midX midY size =
-    String.concat
-        [ "translate("
-        , String.fromFloat midX
-        , ","
-        , String.fromFloat midY
-        , ") scale("
-        , String.fromFloat size
-        , ") translate("
-        , String.fromFloat (negate midX)
-        , ","
-        , String.fromFloat (negate midY)
-        , ")"
-        ]
-
-
-
--- MARKS
-
-
-pipRadius : Float
-pipRadius =
-    cellSize / 14
-
-
-pipOffset : Int -> Float
-pipOffset index =
-    cellSize * (0.25 + 0.25 * toFloat index)
-
-
-pipCells : Int -> List ( Int, Int )
-pipCells count =
-    let
-        corners =
-            [ ( 0, 0 ), ( 2, 0 ), ( 0, 2 ), ( 2, 2 ) ]
-
-        sides =
-            [ ( 0, 1 ), ( 2, 1 ) ]
-
-        center =
-            [ ( 1, 1 ) ]
-    in
-    case count of
-        1 ->
-            center
-
-        2 ->
-            [ ( 0, 0 ), ( 2, 2 ) ]
-
-        3 ->
-            [ ( 0, 0 ), ( 1, 1 ), ( 2, 2 ) ]
-
-        4 ->
-            corners
-
-        5 ->
-            corners ++ center
-
-        6 ->
-            corners ++ sides
-
-        7 ->
-            corners ++ sides ++ center
-
-        8 ->
-            corners ++ sides ++ [ ( 1, 0 ), ( 1, 2 ) ]
-
-        _ ->
-            []
-
-
-discRadius : Float
-discRadius =
-    cellSize * 0.34
 
 
 
@@ -732,78 +502,6 @@ think othello =
 
     else
         Cmd.none
-
-
-
--- HOVER
-
-
-hoverReach : Float
-hoverReach =
-    120
-
-
-hoverSwell : Float
-hoverSwell =
-    0.35
-
-
-hoverShift : Float
-hoverShift =
-    7
-
-
-type alias HoverEffect =
-    { scale : Float
-    , shift : Vector
-    }
-
-
-noEffect : HoverEffect
-noEffect =
-    { scale = 1, shift = ( 0, 0 ) }
-
-
-pointerOnBoard : Model -> Maybe Position
-pointerOnBoard model =
-    Maybe.map
-        (\( px, py ) ->
-            ( px - (model.screen.width / 2 - boardSize / 2)
-            , py - (model.screen.height / 2 - boardSize / 2)
-            )
-        )
-        model.pointer
-
-
-hover : Maybe Position -> Cell -> HoverEffect
-hover pointer ( column, row ) =
-    case pointer of
-        Nothing ->
-            noEffect
-
-        Just ( px, py ) ->
-            let
-                dx =
-                    position column + spacing / 2 - px
-
-                dy =
-                    position row + spacing / 2 - py
-
-                apart =
-                    sqrt (dx * dx + dy * dy)
-            in
-            { scale = 1 + hoverSwell * max 0 (1 - apart / spacing)
-            , shift =
-                if apart == 0 || apart >= hoverReach then
-                    ( 0, 0 )
-
-                else
-                    let
-                        push =
-                            hoverShift * sin (pi * apart / hoverReach)
-                    in
-                    ( dx / apart * push, dy / apart * push )
-            }
 
 
 

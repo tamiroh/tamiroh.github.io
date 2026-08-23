@@ -1,4 +1,4 @@
-module Field exposing (Field, around, blocked, expel, fits, repel, roomy)
+module Field exposing (Field, Obstacle, around, blocked, box, expel, fits, heart, outline, repel, roomy, square, triangle)
 
 import Geometry exposing (Position, Rect, Screen, Vector)
 
@@ -13,9 +13,9 @@ type alias Field =
     }
 
 
-around : Screen -> List Rect -> Field
-around screen rects =
-    { screen = screen, objects = List.map Box rects }
+around : Screen -> List Obstacle -> Field
+around screen objects =
+    { screen = screen, objects = objects }
 
 
 
@@ -49,7 +49,7 @@ repel reach field point =
         (\object ( ax, ay ) ->
             let
                 ( px, py ) =
-                    push reach field.screen object point
+                    push reach object point
             in
             ( ax + px, ay + py )
         )
@@ -57,38 +57,43 @@ repel reach field point =
         field.objects
 
 
-push : Float -> Screen -> Obstacle -> Position -> Vector
-push reach screen object point =
+push : Float -> Obstacle -> Position -> Vector
+push reach object point =
     let
         ( px, py ) =
             point
 
         ( nx, ny ) =
-            nearest object point
+            onEdge object point
 
-        dx =
-            px - nx
+        inside =
+            contains object point
 
-        dy =
-            py - ny
+        ( dx, dy ) =
+            if inside then
+                ( nx - px, ny - py )
+
+            else
+                ( px - nx, py - ny )
 
         apart =
             sqrt (dx * dx + dy * dy)
     in
-    if apart >= reach then
-        ( 0, 0 )
+    if inside then
+        unit ( dx, dy )
 
-    else if apart == 0 then
-        escape screen object point
-            |> Maybe.map direction
-            |> Maybe.withDefault ( 0, 0 )
+    else if apart == 0 || apart >= reach then
+        ( 0, 0 )
 
     else
         let
-            spread =
+            ( ux, uy ) =
+                unit ( dx, dy )
+
+            falloff =
                 1 - apart / reach
         in
-        ( dx / apart * spread, dy / apart * spread )
+        ( ux * falloff, uy * falloff )
 
 
 expel : Float -> Field -> Position -> Position
@@ -103,12 +108,41 @@ shove margin screen object point =
             grow margin object
     in
     if contains solid point then
-        escape screen solid point
-            |> Maybe.map (\side -> edge solid side point)
-            |> Maybe.withDefault point
+        exits solid point
+            |> List.filter (onScreen screen)
+            |> nearestTo point
+            |> Maybe.withDefault (onEdge solid point)
 
     else
         point
+
+
+onScreen : Screen -> Position -> Bool
+onScreen screen ( x, y ) =
+    x >= 0 && x <= screen.width && y >= 0 && y <= screen.height
+
+
+nearestTo : Position -> List Position -> Maybe Position
+nearestTo point candidates =
+    List.sortBy (apartFrom point) candidates |> List.head
+
+
+apartFrom : Position -> Position -> Float
+apartFrom ( ax, ay ) ( bx, by ) =
+    (ax - bx) ^ 2 + (ay - by) ^ 2
+
+
+unit : Vector -> Vector
+unit ( x, y ) =
+    let
+        size =
+            sqrt (x * x + y * y)
+    in
+    if size == 0 then
+        ( 0, 1 )
+
+    else
+        ( x / size, y / size )
 
 
 
@@ -116,107 +150,178 @@ shove margin screen object point =
 
 
 type Obstacle
-    = Box Rect
+    = Obstacle (List Position)
 
 
-type Side
-    = Left
-    | Right
-    | Top
-    | Bottom
+box : Rect -> Obstacle
+box rect =
+    Obstacle
+        [ ( rect.left, rect.top )
+        , ( rect.right, rect.top )
+        , ( rect.right, rect.bottom )
+        , ( rect.left, rect.bottom )
+        ]
 
 
-grow : Float -> Obstacle -> Obstacle
-grow margin (Box rect) =
-    Box
-        { left = rect.left - margin
-        , top = rect.top - margin
-        , right = rect.right + margin
-        , bottom = rect.bottom + margin
+square : Position -> Float -> Obstacle
+square ( x, y ) span =
+    box
+        { left = x - span / 2
+        , top = y - span / 2
+        , right = x + span / 2
+        , bottom = y + span / 2
         }
 
 
+triangle : Position -> Float -> Obstacle
+triangle ( x, y ) span =
+    Obstacle
+        [ ( x, y - span / 2 )
+        , ( x + span / 2, y + span / 2 )
+        , ( x - span / 2, y + span / 2 )
+        ]
+
+
+heart : Position -> Float -> Obstacle
+heart ( x, y ) span =
+    let
+        scale =
+            span / 34
+
+        at turn =
+            let
+                t =
+                    turn * 2 * pi / heartSteps
+            in
+            ( x + scale * 16 * (sin t ^ 3)
+            , y - scale * (13 * cos t - 5 * cos (2 * t) - 2 * cos (3 * t) - cos (4 * t))
+            )
+    in
+    Obstacle (List.map at (List.map toFloat (List.range 0 (round heartSteps - 1))))
+
+
+heartSteps : Float
+heartSteps =
+    24
+
+
+outline : Obstacle -> List Position
+outline (Obstacle points) =
+    points
+
+
+middle : Obstacle -> Position
+middle (Obstacle points) =
+    let
+        count =
+            toFloat (List.length points)
+    in
+    ( List.sum (List.map Tuple.first points) / count
+    , List.sum (List.map Tuple.second points) / count
+    )
+
+
+grow : Float -> Obstacle -> Obstacle
+grow margin object =
+    let
+        ( mx, my ) =
+            middle object
+    in
+    Obstacle
+        (List.map
+            (\( x, y ) ->
+                let
+                    ( ux, uy ) =
+                        unit ( x - mx, y - my )
+                in
+                ( x + ux * margin, y + uy * margin )
+            )
+            (outline object)
+        )
+
+
 width : Obstacle -> Float
-width (Box rect) =
-    rect.right - rect.left
+width object =
+    spread (List.map Tuple.first (outline object))
 
 
 height : Obstacle -> Float
-height (Box rect) =
-    rect.bottom - rect.top
+height object =
+    spread (List.map Tuple.second (outline object))
+
+
+spread : List Float -> Float
+spread values =
+    Maybe.withDefault 0 (List.maximum values) - Maybe.withDefault 0 (List.minimum values)
 
 
 contains : Obstacle -> Position -> Bool
-contains (Box rect) ( x, y ) =
-    x > rect.left && x < rect.right && y > rect.top && y < rect.bottom
+contains object ( x, y ) =
+    List.foldl
+        (\( ( ax, ay ), ( bx, by ) ) hit ->
+            if (ay > y) /= (by > y) && x < (bx - ax) * (y - ay) / (by - ay) + ax then
+                not hit
+
+            else
+                hit
+        )
+        False
+        (edges object)
 
 
-nearest : Obstacle -> Position -> Position
-nearest (Box rect) ( x, y ) =
-    ( clamp rect.left rect.right x, clamp rect.top rect.bottom y )
+edges : Obstacle -> List ( Position, Position )
+edges object =
+    let
+        points =
+            outline object
+    in
+    List.map2 Tuple.pair points (List.drop 1 points ++ List.take 1 points)
+
+
+onEdge : Obstacle -> Position -> Position
+onEdge object point =
+    Maybe.withDefault point (nearestTo point (exits object point))
+
+
+exits : Obstacle -> Position -> List Position
+exits object point =
+    List.map (\( a, b ) -> alongside a b point) (edges object)
+
+
+alongside : Position -> Position -> Position -> Position
+alongside ( ax, ay ) ( bx, by ) ( px, py ) =
+    let
+        dx =
+            bx - ax
+
+        dy =
+            by - ay
+
+        len =
+            dx * dx + dy * dy
+    in
+    if len == 0 then
+        ( ax, ay )
+
+    else
+        let
+            t =
+                clamp 0 1 (((px - ax) * dx + (py - ay) * dy) / len)
+        in
+        ( ax + dx * t, ay + dy * t )
 
 
 area : Screen -> Obstacle -> Float
-area screen (Box rect) =
-    max 0 (min rect.right screen.width - max rect.left 0)
-        * max 0 (min rect.bottom screen.height - max rect.top 0)
-
-
-escape : Screen -> Obstacle -> Position -> Maybe Side
-escape screen obstacle point =
+area screen object =
     let
-        ( x, y ) =
-            point
+        xs =
+            List.map Tuple.first (outline object)
 
-        (Box rect) =
-            obstacle
+        ys =
+            List.map Tuple.second (outline object)
 
-        sideways =
-            if width obstacle < screen.width then
-                [ ( x - rect.left, Left ), ( rect.right - x, Right ) ]
-
-            else
-                []
-
-        upright =
-            if height obstacle < screen.height then
-                [ ( y - rect.top, Top ), ( rect.bottom - y, Bottom ) ]
-
-            else
-                []
+        clipped low high limit =
+            max 0 (min (Maybe.withDefault 0 high) limit - max (Maybe.withDefault 0 low) 0)
     in
-    List.sortBy Tuple.first (sideways ++ upright)
-        |> List.head
-        |> Maybe.map Tuple.second
-
-
-direction : Side -> Vector
-direction side =
-    case side of
-        Left ->
-            ( -1, 0 )
-
-        Right ->
-            ( 1, 0 )
-
-        Top ->
-            ( 0, -1 )
-
-        Bottom ->
-            ( 0, 1 )
-
-
-edge : Obstacle -> Side -> Position -> Position
-edge (Box rect) side ( x, y ) =
-    case side of
-        Left ->
-            ( rect.left, y )
-
-        Right ->
-            ( rect.right, y )
-
-        Top ->
-            ( x, rect.top )
-
-        Bottom ->
-            ( x, rect.bottom )
+    clipped (List.minimum xs) (List.maximum xs) screen.width
+        * clipped (List.minimum ys) (List.maximum ys) screen.height

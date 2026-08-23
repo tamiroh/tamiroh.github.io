@@ -9,7 +9,7 @@ import Browser.Events
 import Cord
 import Cursor
 import Eye exposing (Eye)
-import Field exposing (Field)
+import Field exposing (Field, Obstacle)
 import Geometry exposing (Position, Screen)
 import Grid exposing (Cell)
 import Html exposing (Html)
@@ -60,6 +60,7 @@ type alias Model =
     , pointer : Maybe Position
     , walker : Walker
     , eyes : List Eye
+    , blocks : List Obstacle
     }
 
 
@@ -76,6 +77,7 @@ init _ =
       , pointer = Nothing
       , walker = Walker.start
       , eyes = []
+      , blocks = []
       }
     , Task.perform GotViewport Browser.Dom.getViewport
     )
@@ -112,8 +114,10 @@ type Msg
     | AnimationFramePassed Float
     | SecondPassed
     | PointerMoved Position
+    | FieldClicked Position
     | TouchEnded
     | PointerLeft
+    | BlockPlaced Obstacle
     | GotViewport Browser.Dom.Viewport
     | WindowResized Int Int
     | WallpaperMade Wallpaper
@@ -134,6 +138,24 @@ subscriptions _ =
 pointerDecoder : Json.Decode.Decoder Msg
 pointerDecoder =
     Json.Decode.map PointerMoved positionDecoder
+
+
+blockLimit : Int
+blockLimit =
+    12
+
+
+blockSpan : Float
+blockSpan =
+    54
+
+
+blockGenerator : Position -> Random.Generator Obstacle
+blockGenerator point =
+    Random.uniform (Field.triangle point blockSpan)
+        [ Field.heart point blockSpan
+        , Field.square point blockSpan
+        ]
 
 
 pointerFade : Millis
@@ -197,7 +219,7 @@ update msg model =
                 | elapsed = model.elapsed + delta
                 , shock = Motion.advance (Motion.shockLifetime Grid.count) delta model.shock
                 , cord = Motion.advance Motion.pullDuration delta model.cord
-                , boids = Boid.flock delta (field model.screen) model.pointer model.boids
+                , boids = Boid.flock delta (field model) model.pointer model.boids
                 , walker = Walker.step delta model.screen (ground model.screen) model.pointer model.walker
                 , eyes = List.filterMap (Eye.alive model.elapsed model.pointer) model.eyes
               }
@@ -208,7 +230,7 @@ update msg model =
             ( model
             , Cmd.batch
                 [ Random.generate WallpaperMade (Wallpaper.generator model.screen)
-                , Random.generate EyeOpened (Eye.generator (field model.screen) model.elapsed)
+                , Random.generate EyeOpened (Eye.generator (field model) model.elapsed)
                 ]
             )
 
@@ -216,11 +238,17 @@ update msg model =
         PointerMoved point ->
             ( { model | pointer = Just point }, Cmd.none )
 
+        FieldClicked point ->
+            ( model, Random.generate BlockPlaced (blockGenerator point) )
+
         TouchEnded ->
             ( model, Task.perform (\_ -> PointerLeft) (Process.sleep pointerFade) )
 
         PointerLeft ->
             ( { model | pointer = Nothing }, Cmd.none )
+
+        BlockPlaced block ->
+            ( { model | blocks = List.take blockLimit (block :: model.blocks) }, Cmd.none )
 
         GotViewport viewport ->
             let
@@ -229,7 +257,7 @@ update msg model =
             in
             ( { model | screen = screen }
             , Cmd.batch
-                [ Random.generate BoidsPlaced (Boid.generator (field screen))
+                [ Random.generate BoidsPlaced (Boid.generator (field { model | screen = screen }))
                 , Random.generate WallpaperMade (Wallpaper.generator screen)
                 ]
             )
@@ -280,6 +308,7 @@ view model =
         , backgroundLayer model.theme
         , Wallpaper.view (wallpaperInk model.theme) model.wallpaper
         , eyeLayer model.theme model.screen model.elapsed model.eyes
+        , blockLayer model.theme model.screen model.blocks
         , boidLayer model.theme model.screen model.boids
         , groundLayer model.theme model.screen model.walker
         , Html.div
@@ -367,14 +396,44 @@ pageStyle theme =
         ]
 
 
-backgroundLayer : Theme -> Html msg
+backgroundLayer : Theme -> Html Msg
 backgroundLayer theme =
     Html.div
         [ Attr.style "position" "fixed"
         , Attr.style "inset" "0"
         , Attr.style "background-color" (paper theme)
+        , Html.Events.on "click" (Json.Decode.map FieldClicked positionDecoder)
         ]
         []
+
+
+blockLayer : Theme -> Screen -> List Obstacle -> Html msg
+blockLayer theme screen blocks =
+    Svg.svg
+        [ SvgAttr.width (String.fromFloat screen.width)
+        , SvgAttr.height (String.fromFloat screen.height)
+        , Attr.style "position" "fixed"
+        , Attr.style "inset" "0"
+        , Attr.style "pointer-events" "none"
+        ]
+        (List.map (blockView theme) blocks)
+
+
+blockView : Theme -> Obstacle -> Svg msg
+blockView theme block =
+    Svg.polygon
+        [ SvgAttr.points (String.join " " (List.map corner (Field.outline block)))
+        , SvgAttr.fill (paper theme)
+        , SvgAttr.stroke (ink theme)
+        , SvgAttr.strokeWidth (String.fromFloat lineWidth)
+        , SvgAttr.strokeLinejoin "round"
+        ]
+        []
+
+
+corner : Position -> String
+corner ( x, y ) =
+    String.fromFloat x ++ "," ++ String.fromFloat y
 
 
 eyeLayer : Theme -> Screen -> Millis -> List Eye -> Html msg
@@ -455,15 +514,19 @@ lineWidth =
     2
 
 
-field : Screen -> Field
-field screen =
-    Field.around screen
-        [ { left = screen.width / 2 - Board.size / 2
-          , top = screen.height / 2 - Board.size / 2
-          , right = screen.width / 2 + Board.size / 2
-          , bottom = screen.height / 2 + Board.size / 2
-          }
-        ]
+field : Model -> Field
+field model =
+    Field.around model.screen (boardBlock model.screen :: model.blocks)
+
+
+boardBlock : Screen -> Obstacle
+boardBlock screen =
+    Field.box
+        { left = screen.width / 2 - Board.size / 2
+        , top = screen.height / 2 - Board.size / 2
+        , right = screen.width / 2 + Board.size / 2
+        , bottom = screen.height / 2 + Board.size / 2
+        }
 
 
 

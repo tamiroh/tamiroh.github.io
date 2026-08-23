@@ -209,7 +209,7 @@ update msg model =
                 , shock = Board.step delta model.shock
                 , cord = Cord.step delta model.cord
                 , boids = Boid.step delta (field model.screen) model.pointer model.boids
-                , walker = Walker.step delta (Torus.around model.screen) (ground model.screen) model.pointer model.walker
+                , walker = Walker.step delta (Torus.around model.screen) (groundLevel model.screen) model.pointer model.walker
                 , eyes = List.filterMap (Eye.step model.elapsed model.pointer) model.eyes
               }
             , Cmd.none
@@ -318,6 +318,15 @@ subscriptions _ =
 view : Model -> Html Msg
 view model =
     let
+        wallpaperLook : Wallpaper.Look
+        wallpaperLook =
+            case model.theme of
+                Light ->
+                    { ink = "#eeeeee" }
+
+                Dark ->
+                    { ink = "#111111" }
+
         pageStyle : Html msg
         pageStyle =
             Html.node "style"
@@ -339,7 +348,7 @@ view model =
         ]
         [ pageStyle
         , backgroundLayer model.theme
-        , Wallpaper.view (wallpaperLook model.theme) model.wallpaper
+        , Wallpaper.view wallpaperLook model.wallpaper
         , eyeLayer model.theme model.screen model.elapsed model.eyes
         , blockLayer model.theme model.screen model.blocks
         , boidLayer model.theme model.screen model.boids
@@ -438,7 +447,7 @@ groundLayer : Theme -> Screen -> Walker -> Html msg
 groundLayer theme screen walker =
     let
         level =
-            ground screen
+            groundLevel screen
     in
     Svg.svg
         [ SvgAttr.width (String.fromFloat screen.width)
@@ -544,8 +553,8 @@ groundDepth =
     52
 
 
-ground : Screen -> Float
-ground screen =
+groundLevel : Screen -> Float
+groundLevel screen =
     screen.height - groundDepth
 
 
@@ -596,13 +605,3 @@ paper theme =
 
         Dark ->
             "#000000"
-
-
-wallpaperLook : Theme -> Wallpaper.Look
-wallpaperLook theme =
-    case theme of
-        Light ->
-            { ink = "#eeeeee" }
-
-        Dark ->
-            { ink = "#111111" }

@@ -1,4 +1,4 @@
-module Board exposing (Content(..), Look, Mark(..), Scene, Shade(..), Shock, size, tickShock, view)
+module Board exposing (Content(..), Look, Mark(..), Scene, Shade(..), Shock, size, step, view)
 
 import Cursor
 import Geometry exposing (Position, Vector)
@@ -257,8 +257,8 @@ shockLifetime =
     shockDuration + shockDelay * maxDistance
 
 
-tickShock : Millis -> Maybe Shock -> Maybe Shock
-tickShock delta shock =
+step : Millis -> Maybe Shock -> Maybe Shock
+step delta shock =
     case shock of
         Nothing ->
             Nothing

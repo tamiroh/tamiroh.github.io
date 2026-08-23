@@ -1,4 +1,4 @@
-module Cord exposing (Look, Pull, tickPull, view)
+module Cord exposing (Look, Pull, step, view)
 
 import Cursor
 import Html exposing (Html)
@@ -98,8 +98,8 @@ pullDuration =
     600
 
 
-tickPull : Millis -> Maybe Pull -> Maybe Pull
-tickPull delta pull =
+step : Millis -> Maybe Pull -> Maybe Pull
+step delta pull =
     case pull of
         Nothing ->
             Nothing

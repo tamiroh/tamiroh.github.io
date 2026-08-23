@@ -1,4 +1,4 @@
-module Eye exposing (Eye, Look, alive, generator, view)
+module Eye exposing (Eye, Look, generator, step, view)
 
 import Field exposing (Field)
 import Geometry exposing (Position)
@@ -102,8 +102,8 @@ blink =
     110
 
 
-alive : Millis -> Maybe Position -> Eye -> Maybe Eye
-alive now pointer eye =
+step : Millis -> Maybe Position -> Eye -> Maybe Eye
+step now pointer eye =
     if now - eye.born >= eye.life then
         Nothing
 

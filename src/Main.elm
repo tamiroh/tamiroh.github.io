@@ -206,11 +206,11 @@ update msg model =
         AnimationFramePassed delta ->
             ( { model
                 | elapsed = model.elapsed + delta
-                , shock = Board.tickShock delta model.shock
-                , cord = Cord.tickPull delta model.cord
+                , shock = Board.step delta model.shock
+                , cord = Cord.step delta model.cord
                 , boids = Boid.step delta (field model.screen) model.pointer model.boids
                 , walker = Walker.step delta (Torus.around model.screen) (ground model.screen) model.pointer model.walker
-                , eyes = List.filterMap (Eye.alive model.elapsed model.pointer) model.eyes
+                , eyes = List.filterMap (Eye.step model.elapsed model.pointer) model.eyes
               }
             , Cmd.none
             )

@@ -55,7 +55,7 @@ type alias Model =
     , shock : Maybe Shock
     , elapsed : Millis
     , theme : Theme
-    , pull : Maybe Pull
+    , cord : Maybe Pull
     , screen : Screen
     , boids : List Boid
     , pointer : Maybe Position
@@ -71,7 +71,7 @@ init _ =
       , shock = Nothing
       , elapsed = 0
       , theme = Light
-      , pull = Nothing
+      , cord = Nothing
       , screen = { width = 0, height = 0 }
       , boids = []
       , pointer = Nothing
@@ -183,7 +183,7 @@ update msg model =
                             ( startShock cell { model | play = Discs next }, think next )
 
         CordPulled ->
-            ( { model | theme = toggle model.theme, pull = Just { elapsed = 0 } }, Cmd.none )
+            ( { model | theme = toggle model.theme, cord = Just { elapsed = 0 } }, Cmd.none )
 
         -- GAME
         GameStarted play ->
@@ -206,7 +206,7 @@ update msg model =
             ( { model
                 | elapsed = model.elapsed + delta
                 , shock = Motion.advance (Motion.shockLifetime Grid.count) delta model.shock
-                , pull = Motion.advance Motion.pullDuration delta model.pull
+                , cord = Motion.advance Motion.pullDuration delta model.cord
                 , boids = Boid.flock delta (field model.screen) model.pointer model.boids
                 , walked = model.walked + walkerPace model * delta / 1000
                 , eyes = List.filterMap (Eye.alive model.elapsed model.pointer) model.eyes
@@ -301,7 +301,7 @@ view model =
             , Attr.style "pointer-events" "none"
             ]
             [ boardLayer model ]
-        , Cord.view (ink model.theme) (paper model.theme) lineWidth CordPulled (Motion.pullOffset model.pull)
+        , Cord.view (ink model.theme) (paper model.theme) lineWidth CordPulled (Motion.pullOffset model.cord)
         ]
 
 

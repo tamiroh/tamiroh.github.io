@@ -329,40 +329,40 @@ view model =
         ]
 
 
-contentAt : Model -> Cell -> Board.Content
-contentAt model cell =
-    case model.play of
-        Fresh ->
-            Board.Bare
-
-        Mines game ->
-            case Minesweeper.faceOf cell game of
-                Minesweeper.Hidden ->
-                    Board.Bare
-
-                Minesweeper.Blank ->
-                    Board.Open Board.Blank
-
-                Minesweeper.Count count ->
-                    Board.Open (Board.Pips count)
-
-                Minesweeper.Mine ->
-                    Board.Open Board.Mine
-
-        Discs othello ->
-            case Othello.discAt cell othello of
-                Nothing ->
-                    Board.Bare
-
-                Just Othello.Black ->
-                    Board.Piece Board.Dark
-
-                Just Othello.White ->
-                    Board.Piece Board.Light
-
-
 boardLayer : Model -> Html Msg
 boardLayer model =
+    let
+        contentAt : Cell -> Board.Content
+        contentAt cell =
+            case model.play of
+                Fresh ->
+                    Board.Bare
+
+                Mines game ->
+                    case Minesweeper.faceOf cell game of
+                        Minesweeper.Hidden ->
+                            Board.Bare
+
+                        Minesweeper.Blank ->
+                            Board.Open Board.Blank
+
+                        Minesweeper.Count count ->
+                            Board.Open (Board.Pips count)
+
+                        Minesweeper.Mine ->
+                            Board.Open Board.Mine
+
+                Discs othello ->
+                    case Othello.discAt cell othello of
+                        Nothing ->
+                            Board.Bare
+
+                        Just Othello.Black ->
+                            Board.Piece Board.Dark
+
+                        Just Othello.White ->
+                            Board.Piece Board.Light
+    in
     Html.div
         [ Attr.style "pointer-events"
             (if over model.play then
@@ -379,7 +379,7 @@ boardLayer model =
                 , pointer = model.pointer
                 , shock = model.shock
                 , elapsed = model.elapsed
-                , content = contentAt model
+                , content = contentAt
                 }
             )
         ]
@@ -414,6 +414,22 @@ backgroundLayer theme =
 
 blockLayer : Theme -> Screen -> List Obstacle -> Html msg
 blockLayer theme screen blocks =
+    let
+        corner : Position -> String
+        corner ( x, y ) =
+            String.fromFloat x ++ "," ++ String.fromFloat y
+
+        blockView : Obstacle -> Svg msg
+        blockView block =
+            Svg.polygon
+                [ SvgAttr.points (String.join " " (List.map corner (Field.outline block)))
+                , SvgAttr.fill (paper theme)
+                , SvgAttr.stroke (ink theme)
+                , SvgAttr.strokeWidth (String.fromFloat lineWidth)
+                , SvgAttr.strokeLinejoin "round"
+                ]
+                []
+    in
     Svg.svg
         [ SvgAttr.width (String.fromFloat screen.width)
         , SvgAttr.height (String.fromFloat screen.height)
@@ -421,24 +437,7 @@ blockLayer theme screen blocks =
         , Attr.style "inset" "0"
         , Attr.style "pointer-events" "none"
         ]
-        (List.map (blockView theme) blocks)
-
-
-blockView : Theme -> Obstacle -> Svg msg
-blockView theme block =
-    Svg.polygon
-        [ SvgAttr.points (String.join " " (List.map corner (Field.outline block)))
-        , SvgAttr.fill (paper theme)
-        , SvgAttr.stroke (ink theme)
-        , SvgAttr.strokeWidth (String.fromFloat lineWidth)
-        , SvgAttr.strokeLinejoin "round"
-        ]
-        []
-
-
-corner : Position -> String
-corner ( x, y ) =
-    String.fromFloat x ++ "," ++ String.fromFloat y
+        (List.map blockView blocks)
 
 
 eyeLayer : Theme -> Screen -> Millis -> List Eye -> Html msg
@@ -455,6 +454,20 @@ eyeLayer theme screen now eyes =
 
 boidLayer : Theme -> Screen -> List Boid -> Html msg
 boidLayer theme screen boids =
+    let
+        torus =
+            Torus.around screen
+
+        boidView : Boid -> List (Svg msg)
+        boidView boid =
+            let
+                heading =
+                    atan2 boid.vy boid.vx * 180 / pi
+            in
+            List.map
+                (\( x, y ) -> Bird.view (look theme) { x = x, y = y, heading = heading })
+                (Boid.places torus boid)
+    in
     Svg.svg
         [ SvgAttr.width (String.fromFloat screen.width)
         , SvgAttr.height (String.fromFloat screen.height)
@@ -462,18 +475,7 @@ boidLayer theme screen boids =
         , Attr.style "inset" "0"
         , Attr.style "pointer-events" "none"
         ]
-        (List.concatMap (boidView theme (Torus.around screen)) boids)
-
-
-boidView : Theme -> Torus -> Boid -> List (Svg msg)
-boidView theme torus boid =
-    let
-        heading =
-            atan2 boid.vy boid.vx * 180 / pi
-    in
-    List.map
-        (\( x, y ) -> Bird.view (look theme) { x = x, y = y, heading = heading })
-        (Boid.places torus boid)
+        (List.concatMap boidView boids)
 
 
 groundLayer : Theme -> Screen -> Walker -> Html msg

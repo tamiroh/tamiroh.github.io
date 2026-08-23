@@ -612,6 +612,10 @@ groundLayer theme screen walkers =
 boardLayer : Model -> Html Msg
 boardLayer model =
     let
+        doorUrl : String
+        doorUrl =
+            "https://github.com/tamiroh/tamiroh.github.io"
+
         contentAt : Cell -> Board.Content
         contentAt cell =
             case model.play of
@@ -632,6 +636,9 @@ boardLayer model =
                         Minesweeper.Mine ->
                             Board.Open Board.Mine
 
+                        Minesweeper.Door ->
+                            Board.Open Board.Door
+
                 Discs othello ->
                     case Othello.discAt cell othello of
                         Nothing ->
@@ -642,6 +649,19 @@ boardLayer model =
 
                         Just Othello.White ->
                             Board.Piece Board.Light
+
+        linkAt : Cell -> Maybe String
+        linkAt cell =
+            case model.play of
+                Mines game ->
+                    if Minesweeper.faceOf cell game == Minesweeper.Door then
+                        Just doorUrl
+
+                    else
+                        Nothing
+
+                _ ->
+                    Nothing
     in
     Html.div
         [ Attr.style "pointer-events"
@@ -660,6 +680,7 @@ boardLayer model =
                 , shock = model.shock
                 , elapsed = model.elapsed
                 , content = contentAt
+                , link = linkAt
                 }
             )
         ]

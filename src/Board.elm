@@ -1,8 +1,10 @@
 module Board exposing (Content(..), Look, Mark(..), Scene, Shade(..), Shock, size, step, view)
 
 import Cursor
+import Door
 import Geometry exposing (Position, Vector)
 import Grid exposing (Cell)
+import Html.Attributes as Attr
 import Millis exposing (Millis)
 import Screen exposing (Screen)
 import Skull
@@ -31,6 +33,7 @@ type alias Scene =
     , shock : Maybe Shock
     , elapsed : Millis
     , content : Cell -> Content
+    , link : Cell -> Maybe String
     }
 
 
@@ -50,6 +53,7 @@ type Mark
     = Blank
     | Pips Int
     | Mine
+    | Door
 
 
 type Shade
@@ -150,12 +154,11 @@ cellView scene pointer cell =
 
         swelled =
             hovered.scale
-    in
-    [ Svg.g
-        [ SvgAttr.transform (about ( x + cellSize / 2, y + cellSize / 2 ) swelled)
-        , SvgAttr.strokeWidth (String.fromFloat (scene.look.stroke / swelled))
-        ]
-        (Svg.rect
+
+        href =
+            scene.link cell
+
+        rectAttrs =
             [ SvgAttr.x (String.fromFloat x)
             , SvgAttr.y (String.fromFloat y)
             , SvgAttr.width (String.fromFloat cellSize)
@@ -170,10 +173,33 @@ cellView scene pointer cell =
             , SvgAttr.stroke scene.look.ink
             , SvgAttr.rx (String.fromFloat cellRadius)
             , SvgAttr.cursor (Cursor.css 1 scene.look Cursor.Clickable)
-            , Svg.Events.onClick cell
             ]
-            []
-            :: cellMarks scene seen ( x, y )
+                ++ (if href == Nothing then
+                        [ Svg.Events.onClick cell ]
+
+                    else
+                        []
+                   )
+
+        body =
+            Svg.rect rectAttrs [] :: cellMarks scene seen ( x, y )
+    in
+    [ Svg.g
+        [ SvgAttr.transform (about ( x + cellSize / 2, y + cellSize / 2 ) swelled)
+        , SvgAttr.strokeWidth (String.fromFloat (scene.look.stroke / swelled))
+        ]
+        (case href of
+            Just url ->
+                [ Svg.node "a"
+                    [ Attr.attribute "href" url
+                    , Attr.attribute "target" "_blank"
+                    , Attr.attribute "rel" "noopener noreferrer"
+                    ]
+                    body
+                ]
+
+            Nothing ->
+                body
         )
     ]
 
@@ -192,6 +218,9 @@ cellMarks scene seen ( x, y ) =
 
         Open Mine ->
             Skull.view { ink = scene.look.ink, paper = scene.look.paper } cellSize ( x, y )
+
+        Open Door ->
+            Door.view { ink = scene.look.ink, paper = scene.look.paper } cellSize ( x, y )
 
         Piece shade ->
             [ disc scene shade ( x, y ) ]

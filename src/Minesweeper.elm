@@ -23,6 +23,7 @@ type Face
     | Blank
     | Count Int
     | Mine
+    | Door
 
 
 type Status
@@ -35,6 +36,7 @@ type Status
 type Game
     = Game
         { mines : Set Cell
+        , door : Cell
         , revealed : Set Cell
         , status : Status
         }
@@ -51,13 +53,27 @@ mineCount =
 
 new : Game
 new =
-    Game { mines = Set.empty, revealed = Set.empty, status = Ready }
+    Game { mines = Set.empty, door = ( 0, 0 ), revealed = Set.empty, status = Ready }
 
 
 start : Cell -> Random.Generator Game
 start safe =
-    Random.map (\mines -> Game { mines = mines, revealed = Set.empty, status = Playing })
-        (minesGenerator safe)
+    minesGenerator safe
+        |> Random.andThen
+            (\mines ->
+                doorGenerator safe mines
+                    |> Random.map (\door -> Game { mines = mines, door = door, revealed = Set.empty, status = Playing })
+            )
+
+
+doorGenerator : Cell -> Set Cell -> Random.Generator Cell
+doorGenerator safe mines =
+    case List.filter (\cell -> cell /= safe && not (Set.member cell mines)) Grid.cells of
+        first :: rest ->
+            Random.uniform first rest
+
+        [] ->
+            Random.constant safe
 
 
 minesGenerator : Cell -> Random.Generator (Set Cell)
@@ -144,6 +160,9 @@ faceOf : Cell -> Game -> Face
 faceOf cell (Game game) =
     if not (Set.member cell game.revealed) then
         Hidden
+
+    else if cell == game.door then
+        Door
 
     else if Set.member cell game.mines then
         Mine

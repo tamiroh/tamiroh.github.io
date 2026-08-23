@@ -1,4 +1,4 @@
-module Boid exposing (Boid, flock, generator, wrapCopies)
+module Boid exposing (Boid, generator, step, wrapCopies)
 
 import Field exposing (Field)
 import Geometry exposing (Position, Screen, Vector, wrap, wrapDelta)
@@ -85,8 +85,8 @@ frameMillis =
     1000 / 60
 
 
-flock : Millis -> Field -> Maybe Position -> List Boid -> List Boid
-flock delta field pointer boids =
+step : Millis -> Field -> Maybe Position -> List Boid -> List Boid
+step delta field pointer boids =
     if Field.roomy field then
         List.map (steer (min 2 (delta / frameMillis)) field pointer boids) boids
 

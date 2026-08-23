@@ -219,7 +219,7 @@ update msg model =
                 | elapsed = model.elapsed + delta
                 , shock = Motion.advance (Motion.shockLifetime Grid.count) delta model.shock
                 , cord = Motion.advance Motion.pullDuration delta model.cord
-                , boids = Boid.flock delta (field model) model.pointer model.boids
+                , boids = Boid.step delta (field model) model.pointer model.boids
                 , walker = Walker.step delta model.screen (ground model.screen) model.pointer model.walker
                 , eyes = List.filterMap (Eye.alive model.elapsed model.pointer) model.eyes
               }

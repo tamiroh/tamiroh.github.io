@@ -1,6 +1,6 @@
 module Motion exposing (Pull, Shock, advance, offset, pullDuration, pullOffset, shockLifetime)
 
-import Geometry exposing (Vector)
+import Geometry exposing (Millis, Vector)
 
 
 
@@ -9,15 +9,15 @@ import Geometry exposing (Vector)
 
 type alias Shock =
     { origin : ( Int, Int )
-    , elapsed : Float
+    , elapsed : Millis
     }
 
 
 type alias Pull =
-    { elapsed : Float }
+    { elapsed : Millis }
 
 
-advance : Float -> Float -> Maybe { a | elapsed : Float } -> Maybe { a | elapsed : Float }
+advance : Millis -> Millis -> Maybe { a | elapsed : Millis } -> Maybe { a | elapsed : Millis }
 advance lifetime delta timer =
     case timer of
         Nothing ->
@@ -35,7 +35,7 @@ advance lifetime delta timer =
                 Just { current | elapsed = elapsed }
 
 
-offset : Int -> Maybe Shock -> Float -> ( Int, Int ) -> Vector
+offset : Int -> Maybe Shock -> Millis -> ( Int, Int ) -> Vector
 offset cellCount shock time cell =
     let
         ( shockX, shockY ) =
@@ -56,17 +56,17 @@ shockAmplitude =
     140
 
 
-shockDuration : Float
+shockDuration : Millis
 shockDuration =
     700
 
 
-shockDelay : Float
+shockDelay : Millis
 shockDelay =
     65
 
 
-shockLifetime : Int -> Float
+shockLifetime : Int -> Millis
 shockLifetime cellCount =
     shockDuration + shockDelay * maxDistance cellCount
 
@@ -119,7 +119,7 @@ pullAmplitude =
     20
 
 
-pullDuration : Float
+pullDuration : Millis
 pullDuration =
     600
 
@@ -160,7 +160,7 @@ driftAmplitude =
     1.2
 
 
-drift : Float -> ( Int, Int ) -> Vector
+drift : Millis -> ( Int, Int ) -> Vector
 drift time ( column, row ) =
     let
         seconds =

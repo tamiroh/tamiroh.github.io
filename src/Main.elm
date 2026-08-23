@@ -9,7 +9,7 @@ import Cord
 import Cursor
 import Eye exposing (Eye)
 import Field exposing (Field)
-import Geometry exposing (Position, Screen, Vector, wrap, wrapDelta)
+import Geometry exposing (Millis, Position, Screen, Vector, wrap, wrapDelta)
 import Grid exposing (Cell)
 import Html exposing (Html)
 import Html.Attributes as Attr
@@ -50,9 +50,9 @@ main =
 
 type alias Model =
     { play : Play
-    , pattern : String
+    , backdrop : String
     , shock : Maybe Shock
-    , time : Float
+    , elapsed : Millis
     , theme : Theme
     , pull : Maybe Pull
     , screen : Screen
@@ -66,9 +66,9 @@ type alias Model =
 init : () -> ( Model, Cmd Msg )
 init _ =
     ( { play = Fresh
-      , pattern = ""
+      , backdrop = ""
       , shock = Nothing
-      , time = 0
+      , elapsed = 0
       , theme = Light
       , pull = Nothing
       , screen = { width = 0, height = 0 }
@@ -145,7 +145,7 @@ pointerDecoder =
     Json.Decode.map PointerMoved positionDecoder
 
 
-pointerFade : Float
+pointerFade : Millis
 pointerFade =
     350
 
@@ -203,12 +203,12 @@ update msg model =
         -- CLOCK
         AnimationFramePassed delta ->
             ( { model
-                | time = model.time + delta
+                | elapsed = model.elapsed + delta
                 , shock = Motion.advance (Motion.shockLifetime Grid.count) delta model.shock
                 , pull = Motion.advance Motion.pullDuration delta model.pull
                 , boids = Boid.flock delta (field model.screen) model.pointer model.boids
                 , walked = model.walked + walkerPace model * delta / 1000
-                , eyes = List.filterMap (Eye.alive model.time model.pointer) model.eyes
+                , eyes = List.filterMap (Eye.alive model.elapsed model.pointer) model.eyes
               }
             , Cmd.none
             )
@@ -217,7 +217,7 @@ update msg model =
             ( model
             , Cmd.batch
                 [ Random.generate PatternGenerated Pattern.generator
-                , Random.generate EyeOpened (Eye.generator (field model.screen) model.time)
+                , Random.generate EyeOpened (Eye.generator (field model.screen) model.elapsed)
                 ]
             )
 
@@ -248,7 +248,7 @@ update msg model =
 
         -- RANDOM
         PatternGenerated pattern ->
-            ( { model | pattern = Pattern.toText (patternColumns model.screen) (patternRows model.screen) pattern }, Cmd.none )
+            ( { model | backdrop = Pattern.toText (patternColumns model.screen) (patternRows model.screen) pattern }, Cmd.none )
 
         BoidsPlaced boids ->
             ( { model | boids = boids }, Cmd.none )
@@ -287,8 +287,8 @@ view model =
         ]
         [ pageStyle model.theme
         , backgroundLayer model.theme
-        , patternLayer model.theme model.pattern
-        , eyeLayer model.theme model.screen model.time model.eyes
+        , patternLayer model.theme model.backdrop
+        , eyeLayer model.theme model.screen model.elapsed model.eyes
         , boidLayer model.theme model.screen model.boids
         , groundLayer model.theme model.screen model.walked (walkerPace model / walkerSpeed)
         , Html.div
@@ -344,7 +344,7 @@ backgroundLayer theme =
         []
 
 
-eyeLayer : Theme -> Screen -> Float -> List Eye -> Html msg
+eyeLayer : Theme -> Screen -> Millis -> List Eye -> Html msg
 eyeLayer theme screen now eyes =
     Svg.svg
         [ SvgAttr.width (String.fromFloat screen.width)
@@ -475,7 +475,7 @@ cellView model pointer cell =
             shove pointer cell
 
         ( driftX, driftY ) =
-            Motion.offset Grid.count model.shock model.time cell
+            Motion.offset Grid.count model.shock model.elapsed cell
 
         ( dx, dy ) =
             ( driftX + shoveX, driftY + shoveY )
@@ -740,7 +740,7 @@ discRadius =
 -- OTHELLO
 
 
-thinkingDelay : Float
+thinkingDelay : Millis
 thinkingDelay =
     420
 

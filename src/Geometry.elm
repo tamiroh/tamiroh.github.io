@@ -1,6 +1,10 @@
-module Geometry exposing (Position, Rect, Screen, Vector, wrap, wrapDelta)
+module Geometry exposing (Millis, Position, Rect, Screen, Vector, wrap, wrapDelta)
 
 -- GEOMETRY
+
+
+type alias Millis =
+    Float
 
 
 type alias Position =

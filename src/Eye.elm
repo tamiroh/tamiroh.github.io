@@ -1,7 +1,7 @@
 module Eye exposing (Eye, alive, generator, view)
 
 import Field exposing (Field)
-import Geometry exposing (Position)
+import Geometry exposing (Millis, Position)
 import Random
 import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
@@ -14,8 +14,8 @@ import Svg.Attributes as SvgAttr
 type alias Eye =
     { x : Float
     , y : Float
-    , born : Float
-    , life : Float
+    , born : Millis
+    , life : Millis
     , shut : Maybe Float
     }
 
@@ -44,7 +44,7 @@ tries =
     6
 
 
-generator : Field -> Float -> Random.Generator (Maybe Eye)
+generator : Field -> Millis -> Random.Generator (Maybe Eye)
 generator field now =
     Random.andThen
         (\roll ->
@@ -89,12 +89,12 @@ shy =
     90
 
 
-blink : Float
+blink : Millis
 blink =
     110
 
 
-alive : Float -> Maybe Position -> Eye -> Maybe Eye
+alive : Millis -> Maybe Position -> Eye -> Maybe Eye
 alive now pointer eye =
     if now - eye.born >= eye.life then
         Nothing
@@ -126,7 +126,7 @@ noticed pointer eye =
             (px - eye.x) ^ 2 + (py - eye.y) ^ 2 < shy ^ 2
 
 
-closing : Float -> Eye -> Float
+closing : Millis -> Eye -> Float
 closing now eye =
     case eye.shut of
         Nothing ->
@@ -150,13 +150,13 @@ snap =
     5
 
 
-aperture : Float -> Eye -> Float
+aperture : Millis -> Eye -> Float
 aperture now eye =
     min 1 (snap * sin (pi * clamp 0 1 ((now - eye.born) / eye.life)))
         * closing now eye
 
 
-view : String -> String -> Float -> Float -> Eye -> Maybe (Svg msg)
+view : String -> String -> Float -> Millis -> Eye -> Maybe (Svg msg)
 view ink paper stroke now eye =
     let
         open =

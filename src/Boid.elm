@@ -1,7 +1,7 @@
 module Boid exposing (Boid, flock, generator, wrapCopies)
 
 import Field exposing (Field)
-import Geometry exposing (Position, Screen, Vector, wrap, wrapDelta)
+import Geometry exposing (Millis, Position, Screen, Vector, wrap, wrapDelta)
 import Random
 
 
@@ -79,12 +79,12 @@ placeGenerator field attempts =
 -- SIMULATE
 
 
-frameMillis : Float
+frameMillis : Millis
 frameMillis =
     1000 / 60
 
 
-flock : Float -> Field -> Maybe Position -> List Boid -> List Boid
+flock : Millis -> Field -> Maybe Position -> List Boid -> List Boid
 flock delta field pointer boids =
     if Field.roomy field then
         List.map (steer (min 2 (delta / frameMillis)) field pointer boids) boids

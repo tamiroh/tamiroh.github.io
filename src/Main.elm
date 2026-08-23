@@ -59,7 +59,7 @@ type alias Model =
     , screen : Screen
     , boids : List Boid
     , pointer : Maybe Position
-    , walker : Walker
+    , walkers : List Walker
     , eyes : List Eye
     , blocks : List Obstacle
     }
@@ -76,7 +76,7 @@ init _ =
       , screen = { width = 0, height = 0 }
       , boids = []
       , pointer = Nothing
-      , walker = Walker.new
+      , walkers = []
       , eyes = []
       , blocks = []
       }
@@ -123,6 +123,7 @@ type Msg
     | WindowResized Int Int
     | PatternChosen Pattern
     | BoidsPlaced (List Boid)
+    | WalkersPlaced (List Walker)
     | EyeOpened (Maybe Eye)
 
 
@@ -209,7 +210,7 @@ update msg model =
                 , shock = Board.step delta model.shock
                 , cord = Cord.step delta model.cord
                 , boids = Boid.step delta (field model.screen) model.pointer model.boids
-                , walker = Walker.step delta (Torus.around model.screen) (groundLevel model.screen) model.pointer model.walker
+                , walkers = List.map (Walker.step delta (Torus.around model.screen) (groundLevel model.screen) model.pointer) model.walkers
                 , eyes = List.filterMap (Eye.step model.elapsed model.pointer) model.eyes
               }
             , Cmd.none
@@ -265,10 +266,15 @@ update msg model =
             let
                 screen =
                     { width = viewport.viewport.width, height = viewport.viewport.height }
+
+                walkerCount : Int
+                walkerCount =
+                    3
             in
             ( { model | screen = screen }
             , Cmd.batch
                 [ Random.generate BoidsPlaced (Boid.generator (field screen))
+                , Random.generate WalkersPlaced (Random.list walkerCount (Walker.generator screen))
                 , Random.generate PatternChosen Wallpaper.generator
                 ]
             )
@@ -282,6 +288,9 @@ update msg model =
 
         BoidsPlaced boids ->
             ( { model | boids = boids }, Cmd.none )
+
+        WalkersPlaced walkers ->
+            ( { model | walkers = walkers }, Cmd.none )
 
         EyeOpened opened ->
             case opened of
@@ -352,7 +361,7 @@ view model =
         , eyeLayer model.theme model.screen model.elapsed model.eyes
         , blockLayer model.theme model.screen model.blocks
         , boidLayer model.theme model.screen model.boids
-        , groundLayer model.theme model.screen model.walker
+        , groundLayer model.theme model.screen model.walkers
         , Html.div
             [ Attr.style "position" "fixed"
             , Attr.style "inset" "0"
@@ -443,8 +452,8 @@ boidLayer theme screen boids =
         (List.concatMap boidView boids)
 
 
-groundLayer : Theme -> Screen -> Walker -> Html msg
-groundLayer theme screen walker =
+groundLayer : Theme -> Screen -> List Walker -> Html msg
+groundLayer theme screen walkers =
     let
         level =
             groundLevel screen
@@ -473,7 +482,7 @@ groundLayer theme screen walker =
                 , SvgAttr.strokeWidth (String.fromFloat lineWidth)
                 ]
                 []
-            :: Walker.view (look theme) (Torus.around screen) level walker
+            :: List.concatMap (Walker.view (look theme) (Torus.around screen) level) walkers
         )
 
 

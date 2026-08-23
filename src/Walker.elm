@@ -1,7 +1,9 @@
-module Walker exposing (Look, Walker, new, step, view)
+module Walker exposing (Look, Walker, generator, step, view)
 
 import Geometry exposing (Position)
 import Millis exposing (Millis)
+import Random
+import Screen exposing (Screen)
 import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
 import Torus exposing (Torus)
@@ -23,23 +25,43 @@ type Walker
     = Walker
         { walked : Float
         , pace : Float
+        , speed : Float
         }
 
 
-new : Walker
-new =
-    Walker { walked = 0, pace = speed }
+generator : Screen -> Random.Generator Walker
+generator screen =
+    Random.map2
+        (\walked spd -> Walker { walked = walked, pace = spd, speed = spd })
+        (Random.float 0 screen.width)
+        speedGenerator
+
+
+speedGenerator : Random.Generator Float
+speedGenerator =
+    Random.float slowest fastest
+
+
+slowest : Float
+slowest =
+    18
+
+
+fastest : Float
+fastest =
+    36
 
 
 step : Millis -> Torus -> Float -> Maybe Position -> Walker -> Walker
 step delta torus level pointer (Walker walker) =
     let
         current =
-            pace torus level walker.walked pointer
+            pace walker.speed torus level walker.walked pointer
     in
     Walker
         { walked = walker.walked + current * delta / 1000
         , pace = current
+        , speed = walker.speed
         }
 
 
@@ -50,7 +72,7 @@ view look torus level (Walker walker) =
             strolled torus walker.walked
 
         hurry =
-            max 0 (walker.pace / speed - 1)
+            max 0 (walker.pace / walker.speed - 1)
 
         swing =
             sin (walker.walked / stride * pi) * sway * min flail (1 + hurry * 0.4)
@@ -75,8 +97,8 @@ view look torus level (Walker walker) =
 -- PACE
 
 
-pace : Torus -> Float -> Float -> Maybe Position -> Float
-pace torus level walked pointer =
+pace : Float -> Torus -> Float -> Float -> Maybe Position -> Float
+pace speed torus level walked pointer =
     case pointer of
         Nothing ->
             speed
@@ -115,11 +137,6 @@ pace torus level walked pointer =
 strolled : Torus -> Float -> Float
 strolled torus walked =
     Torus.wrapX torus (negate walked)
-
-
-speed : Float
-speed =
-    26
 
 
 stride : Float

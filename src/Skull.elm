@@ -1,5 +1,6 @@
 module Skull exposing (Look, view)
 
+import Geometry exposing (Position)
 import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
 
@@ -14,8 +15,8 @@ type alias Look =
     }
 
 
-view : Look -> Float -> Float -> Float -> List (Svg msg)
-view look size x y =
+view : Look -> Float -> Position -> List (Svg msg)
+view look size ( x, y ) =
     let
         midX =
             x + size / 2
@@ -39,15 +40,15 @@ view look size x y =
         , SvgAttr.fill look.paper
         ]
         []
-    , socket look size (midX - eyeGap size) midY
-    , socket look size (midX + eyeGap size) midY
-    , tooth look size (midX - toothGap size) midY
-    , tooth look size (midX + toothGap size) midY
+    , socket look size ( midX - eyeGap size, midY )
+    , socket look size ( midX + eyeGap size, midY )
+    , tooth look size ( midX - toothGap size, midY )
+    , tooth look size ( midX + toothGap size, midY )
     ]
 
 
-socket : Look -> Float -> Float -> Float -> Svg msg
-socket look size midX midY =
+socket : Look -> Float -> Position -> Svg msg
+socket look size ( midX, midY ) =
     Svg.circle
         [ SvgAttr.cx (String.fromFloat midX)
         , SvgAttr.cy (String.fromFloat (midY - eyeLift size))
@@ -57,8 +58,8 @@ socket look size midX midY =
         []
 
 
-tooth : Look -> Float -> Float -> Float -> Svg msg
-tooth look size midX midY =
+tooth : Look -> Float -> Position -> Svg msg
+tooth look size ( midX, midY ) =
     Svg.rect
         [ SvgAttr.x (String.fromFloat (midX - toothWidth size / 2))
         , SvgAttr.y (String.fromFloat (midY + toothTop size))

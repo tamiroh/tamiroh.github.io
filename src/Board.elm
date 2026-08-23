@@ -82,8 +82,8 @@ position index =
     margin + spacing * toFloat index
 
 
-about : Float -> Float -> Float -> String
-about midX midY factor =
+about : Position -> Float -> String
+about ( midX, midY ) factor =
     String.concat
         [ "translate("
         , String.fromFloat midX
@@ -150,7 +150,7 @@ cellView scene pointer cell =
             hovered.scale
     in
     [ Svg.g
-        [ SvgAttr.transform (about (x + cellSize / 2) (y + cellSize / 2) swelled)
+        [ SvgAttr.transform (about ( x + cellSize / 2, y + cellSize / 2 ) swelled)
         , SvgAttr.strokeWidth (String.fromFloat (scene.look.stroke / swelled))
         ]
         (Svg.rect
@@ -171,13 +171,13 @@ cellView scene pointer cell =
             , Svg.Events.onClick cell
             ]
             []
-            :: cellMarks scene seen x y
+            :: cellMarks scene seen ( x, y )
         )
     ]
 
 
-cellMarks : Scene -> Content -> Float -> Float -> List (Svg Cell)
-cellMarks scene seen x y =
+cellMarks : Scene -> Content -> Position -> List (Svg Cell)
+cellMarks scene seen ( x, y ) =
     case seen of
         Bare ->
             []
@@ -186,17 +186,17 @@ cellMarks scene seen x y =
             []
 
         Open (Pips count) ->
-            List.map (pip scene x y) (pipCells count)
+            List.map (pip scene ( x, y )) (pipCells count)
 
         Open Mine ->
-            Skull.view { ink = scene.look.ink, paper = scene.look.paper } cellSize x y
+            Skull.view { ink = scene.look.ink, paper = scene.look.paper } cellSize ( x, y )
 
         Piece shade ->
-            [ disc scene shade x y ]
+            [ disc scene shade ( x, y ) ]
 
 
-disc : Scene -> Shade -> Float -> Float -> Svg msg
-disc scene shade x y =
+disc : Scene -> Shade -> Position -> Svg msg
+disc scene shade ( x, y ) =
     Svg.circle
         [ SvgAttr.cx (String.fromFloat (x + cellSize / 2))
         , SvgAttr.cy (String.fromFloat (y + cellSize / 2))
@@ -214,8 +214,8 @@ disc scene shade x y =
         []
 
 
-pip : Scene -> Float -> Float -> ( Int, Int ) -> Svg msg
-pip scene x y ( column, row ) =
+pip : Scene -> Position -> ( Int, Int ) -> Svg msg
+pip scene ( x, y ) ( column, row ) =
     Svg.circle
         [ SvgAttr.cx (String.fromFloat (x + pipOffset column))
         , SvgAttr.cy (String.fromFloat (y + pipOffset row))

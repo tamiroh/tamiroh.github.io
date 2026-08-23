@@ -1,5 +1,9 @@
 module Cursor exposing (Look, Over(..), css)
 
+import Geometry exposing (Position)
+
+
+
 -- CURSOR
 
 
@@ -61,8 +65,8 @@ css look over =
         , "' fill='"
         , webColour skin
         , "'/%3E"
-        , wink face (edge - radius * 0.35) (edge - radius * 0.28)
-        , wink face (edge + radius * 0.35) (edge - radius * 0.28)
+        , wink face ( edge - radius * 0.35, edge - radius * 0.28 )
+        , wink face ( edge + radius * 0.35, edge - radius * 0.28 )
         , "%3Cpath d='M "
         , num (edge - radius * 0.42)
         , " "
@@ -86,8 +90,8 @@ css look over =
         ]
 
 
-wink : String -> Float -> Float -> String
-wink colour x y =
+wink : String -> Position -> String
+wink colour ( x, y ) =
     String.concat
         [ "%3Ccircle cx='"
         , num x

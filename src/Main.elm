@@ -20,7 +20,6 @@ import Millis exposing (Millis)
 import Minesweeper
 import Motion exposing (Pull, Shock)
 import Othello
-import Pattern exposing (Pattern)
 import Process
 import Random
 import Svg exposing (Svg)
@@ -28,6 +27,7 @@ import Svg.Attributes as SvgAttr
 import Task
 import Time
 import Walker exposing (Walker)
+import Wallpaper exposing (Wallpaper)
 
 
 
@@ -50,7 +50,7 @@ main =
 
 type alias Model =
     { play : Play
-    , wallpaper : String
+    , wallpaper : Wallpaper
     , shock : Maybe Shock
     , elapsed : Millis
     , theme : Theme
@@ -66,7 +66,7 @@ type alias Model =
 init : () -> ( Model, Cmd Msg )
 init _ =
     ( { play = Fresh
-      , wallpaper = ""
+      , wallpaper = Wallpaper.blank
       , shock = Nothing
       , elapsed = 0
       , theme = Light
@@ -77,10 +77,7 @@ init _ =
       , walker = Walker.start
       , eyes = []
       }
-    , Cmd.batch
-        [ Random.generate PatternGenerated Pattern.generator
-        , Task.perform GotViewport Browser.Dom.getViewport
-        ]
+    , Task.perform GotViewport Browser.Dom.getViewport
     )
 
 
@@ -119,7 +116,7 @@ type Msg
     | PointerLeft
     | GotViewport Browser.Dom.Viewport
     | WindowResized Int Int
-    | PatternGenerated Pattern
+    | WallpaperMade Wallpaper
     | BoidsPlaced (List Boid)
     | EyeOpened (Maybe Eye)
 
@@ -210,7 +207,7 @@ update msg model =
         SecondPassed ->
             ( model
             , Cmd.batch
-                [ Random.generate PatternGenerated Pattern.generator
+                [ Random.generate WallpaperMade (Wallpaper.generator model.screen)
                 , Random.generate EyeOpened (Eye.generator (field model.screen) model.elapsed)
                 ]
             )
@@ -233,7 +230,7 @@ update msg model =
             ( { model | screen = screen }
             , Cmd.batch
                 [ Random.generate BoidsPlaced (Boid.generator (field screen))
-                , Random.generate PatternGenerated Pattern.generator
+                , Random.generate WallpaperMade (Wallpaper.generator screen)
                 ]
             )
 
@@ -241,8 +238,8 @@ update msg model =
             ( { model | screen = { width = toFloat width, height = toFloat height } }, Cmd.none )
 
         -- RANDOM
-        PatternGenerated pattern ->
-            ( { model | wallpaper = Pattern.toText (wallpaperColumns model.screen) (wallpaperRows model.screen) pattern }, Cmd.none )
+        WallpaperMade made ->
+            ( { model | wallpaper = made }, Cmd.none )
 
         BoidsPlaced boids ->
             ( { model | boids = boids }, Cmd.none )
@@ -281,7 +278,7 @@ view model =
         ]
         [ pageStyle model.theme
         , backgroundLayer model.theme
-        , wallpaperLayer model.theme model.wallpaper
+        , Wallpaper.view (wallpaperInk model.theme) model.wallpaper
         , eyeLayer model.theme model.screen model.elapsed model.eyes
         , boidLayer model.theme model.screen model.boids
         , groundLayer model.theme model.screen model.walker
@@ -449,23 +446,6 @@ groundLayer theme screen walker =
         )
 
 
-wallpaperLayer : Theme -> String -> Html msg
-wallpaperLayer theme text =
-    Html.pre
-        [ Attr.style "position" "fixed"
-        , Attr.style "inset" "0"
-        , Attr.style "margin" "0"
-        , Attr.style "overflow" "hidden"
-        , Attr.style "font-family" "monospace"
-        , Attr.style "font-size" (String.fromFloat wallpaperFontSize ++ "px")
-        , Attr.style "line-height" (String.fromFloat wallpaperLineHeight)
-        , Attr.style "color" (wallpaperInk theme)
-        , Attr.style "pointer-events" "none"
-        , Attr.style "user-select" "none"
-        ]
-        [ Html.text text ]
-
-
 
 -- LAYOUT
 
@@ -516,35 +496,6 @@ groundDepth =
 ground : Screen -> Float
 ground screen =
     screen.height - groundDepth
-
-
-
--- WALLPAPER
-
-
-wallpaperFontSize : Float
-wallpaperFontSize =
-    13
-
-
-wallpaperLineHeight : Float
-wallpaperLineHeight =
-    1.2
-
-
-wallpaperCharWidth : Float
-wallpaperCharWidth =
-    wallpaperFontSize * 0.45
-
-
-wallpaperColumns : Screen -> Int
-wallpaperColumns screen =
-    ceiling (screen.width / wallpaperCharWidth) + 1
-
-
-wallpaperRows : Screen -> Int
-wallpaperRows screen =
-    ceiling (screen.height / (wallpaperFontSize * wallpaperLineHeight)) + 1
 
 
 

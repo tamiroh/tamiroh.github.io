@@ -1,6 +1,6 @@
 module Walker exposing (Look, Walker, start, step, view)
 
-import Geometry exposing (Position, Screen, wrap, wrapDelta)
+import Geometry exposing (Position, Screen)
 import Millis exposing (Millis)
 import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
@@ -71,6 +71,27 @@ view look screen level (Walker walker) =
 
 
 -- PACE
+
+
+wrap : Float -> Float -> Float
+wrap span value =
+    if span <= 0 then
+        value
+
+    else
+        value - span * toFloat (floor (value / span))
+
+
+wrapDelta : Float -> Float -> Float
+wrapDelta span value =
+    if value > span / 2 then
+        value - span
+
+    else if value < negate (span / 2) then
+        value + span
+
+    else
+        value
 
 
 pace : Screen -> Float -> Float -> Maybe Position -> Float

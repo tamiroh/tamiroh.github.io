@@ -1,7 +1,7 @@
 module Boid exposing (Boid, generator, places, step)
 
 import Field exposing (Field)
-import Geometry exposing (Position, Screen, Vector, wrap, wrapDelta)
+import Geometry exposing (Position, Screen, Vector)
 import Millis exposing (Millis)
 import Random
 
@@ -335,6 +335,27 @@ normalize ( x, y ) =
 
 
 -- TORUS
+
+
+wrap : Float -> Float -> Float
+wrap span value =
+    if span <= 0 then
+        value
+
+    else
+        value - span * toFloat (floor (value / span))
+
+
+wrapDelta : Float -> Float -> Float
+wrapDelta span value =
+    if value > span / 2 then
+        value - span
+
+    else if value < negate (span / 2) then
+        value + span
+
+    else
+        value
 
 
 confine : Field -> Position -> Position

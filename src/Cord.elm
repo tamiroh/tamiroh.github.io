@@ -8,10 +8,6 @@ import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
 
 
-
--- CORD
-
-
 type alias Look =
     { ink : String
     , paper : String

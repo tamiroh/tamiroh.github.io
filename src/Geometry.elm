@@ -1,7 +1,5 @@
 module Geometry exposing (Position, Vector)
 
--- GEOMETRY
-
 
 type alias Position =
     ( Float, Float )

@@ -3,10 +3,6 @@ module Cursor exposing (Look, Over(..), css)
 import Geometry exposing (Position)
 
 
-
--- CURSOR
-
-
 type alias Look =
     { ink : String
     , paper : String

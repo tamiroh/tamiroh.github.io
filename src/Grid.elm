@@ -1,7 +1,5 @@
 module Grid exposing (Cell, cells, inside, neighbours, side)
 
--- GRID
-
 
 type alias Cell =
     ( Int, Int )

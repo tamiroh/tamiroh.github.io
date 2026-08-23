@@ -10,7 +10,7 @@ import Cord
 import Cursor
 import Eye exposing (Eye)
 import Field exposing (Field, Obstacle)
-import Geometry exposing (Position, Screen)
+import Geometry exposing (Position)
 import Grid exposing (Cell)
 import Html exposing (Html)
 import Html.Attributes as Attr
@@ -22,6 +22,7 @@ import Motion exposing (Pull, Shock)
 import Othello
 import Process
 import Random
+import Screen exposing (Screen)
 import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
 import Task

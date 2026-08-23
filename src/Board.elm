@@ -1,8 +1,9 @@
 module Board exposing (Content(..), Look, Mark(..), Scene, Shade(..), size, view)
 
 import Cursor
-import Geometry exposing (Position, Screen, Vector)
+import Geometry exposing (Position, Vector)
 import Grid exposing (Cell)
+import Screen exposing (Screen)
 import Skull
 import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr

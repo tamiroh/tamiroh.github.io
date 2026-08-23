@@ -1,9 +1,9 @@
 module Wallpaper exposing (Wallpaper, blank, generator, view)
 
-import Geometry exposing (Screen)
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Random
+import Screen exposing (Screen)
 
 
 

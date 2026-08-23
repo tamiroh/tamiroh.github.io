@@ -1,4 +1,4 @@
-module Geometry exposing (Position, Screen, Vector)
+module Geometry exposing (Position, Vector)
 
 -- GEOMETRY
 
@@ -9,9 +9,3 @@ type alias Position =
 
 type alias Vector =
     ( Float, Float )
-
-
-type alias Screen =
-    { width : Float
-    , height : Float
-    }

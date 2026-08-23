@@ -1,7 +1,8 @@
 module Walker exposing (Look, Walker, start, step, view)
 
-import Geometry exposing (Position, Screen)
+import Geometry exposing (Position)
 import Millis exposing (Millis)
+import Screen exposing (Screen)
 import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
 

@@ -1,6 +1,7 @@
 module Field exposing (Field, Obstacle, around, blocked, expel, fits, heart, outline, repel, roomy, square, triangle)
 
-import Geometry exposing (Position, Screen, Vector)
+import Geometry exposing (Position, Vector)
+import Screen exposing (Screen)
 
 
 

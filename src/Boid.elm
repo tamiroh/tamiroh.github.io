@@ -1,9 +1,10 @@
 module Boid exposing (Boid, generator, places, step)
 
 import Field exposing (Field)
-import Geometry exposing (Position, Screen, Vector)
+import Geometry exposing (Position, Vector)
 import Millis exposing (Millis)
 import Random
+import Screen exposing (Screen)
 
 
 

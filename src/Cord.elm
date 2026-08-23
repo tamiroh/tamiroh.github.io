@@ -25,7 +25,7 @@ view look pulled dy =
         [ Attr.style "position" "fixed"
         , Attr.style "top" "0"
         , Attr.style "right" (String.fromFloat inset ++ "px")
-        , Attr.style "cursor" (Cursor.css look True)
+        , Attr.style "cursor" (Cursor.css look Cursor.Clickable)
         , Attr.style "user-select" "none"
         , Html.Events.onClick pulled
         ]

@@ -388,7 +388,7 @@ pageStyle theme =
                 [ "html,body{margin:0;overflow:hidden;overscroll-behavior:none"
                 , ";user-select:none;-webkit-user-select:none"
                 , ";cursor:"
-                , Cursor.css (look theme) False
+                , Cursor.css (look theme) Cursor.Empty
                 , "}"
                 ]
             )

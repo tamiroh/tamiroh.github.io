@@ -1,4 +1,4 @@
-module Cursor exposing (Look, css)
+module Cursor exposing (Look, Over(..), css)
 
 -- CURSOR
 
@@ -15,25 +15,32 @@ radius =
     11
 
 
-css : Look -> Bool -> String
-css look active =
+type Over
+    = Empty
+    | Clickable
+
+
+css : Look -> Over -> String
+css look over =
     let
         edge =
             radius + look.stroke
 
         skin =
-            if active then
-                look.ink
+            case over of
+                Clickable ->
+                    look.ink
 
-            else
-                look.paper
+                Empty ->
+                    look.paper
 
         face =
-            if active then
-                look.paper
+            case over of
+                Clickable ->
+                    look.paper
 
-            else
-                look.ink
+                Empty ->
+                    look.ink
     in
     String.concat
         [ "url(\"data:image/svg+xml,"

@@ -28,7 +28,7 @@ import Svg.Attributes as SvgAttr
 import Task
 import Time
 import Walker exposing (Walker)
-import Wallpaper exposing (Rendered, Wallpaper)
+import Wallpaper exposing (Pattern, Rendered)
 
 
 
@@ -121,7 +121,7 @@ type Msg
     | BlockPlaced Obstacle
     | GotViewport Browser.Dom.Viewport
     | WindowResized Int Int
-    | WallpaperMade Wallpaper
+    | PatternChosen Pattern
     | BoidsPlaced (List Boid)
     | EyeOpened (Maybe Eye)
 
@@ -230,7 +230,7 @@ update msg model =
         SecondPassed ->
             ( model
             , Cmd.batch
-                [ Random.generate WallpaperMade Wallpaper.generator
+                [ Random.generate PatternChosen Wallpaper.generator
                 , Random.generate EyeOpened (Eye.generator (field model) model.elapsed)
                 ]
             )
@@ -259,7 +259,7 @@ update msg model =
             ( { model | screen = screen }
             , Cmd.batch
                 [ Random.generate BoidsPlaced (Boid.generator (field { model | screen = screen }))
-                , Random.generate WallpaperMade Wallpaper.generator
+                , Random.generate PatternChosen Wallpaper.generator
                 ]
             )
 
@@ -267,8 +267,8 @@ update msg model =
             ( { model | screen = { width = toFloat width, height = toFloat height } }, Cmd.none )
 
         -- RANDOM
-        WallpaperMade made ->
-            ( { model | wallpaper = Wallpaper.render model.screen made }, Cmd.none )
+        PatternChosen pattern ->
+            ( { model | wallpaper = Wallpaper.render model.screen pattern }, Cmd.none )
 
         BoidsPlaced boids ->
             ( { model | boids = boids }, Cmd.none )

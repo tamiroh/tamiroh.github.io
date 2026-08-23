@@ -1,4 +1,4 @@
-module Wallpaper exposing (Look, Rendered, Wallpaper, blank, generator, render, view)
+module Wallpaper exposing (Look, Pattern, Rendered, blank, generator, render, view)
 
 import Html exposing (Html)
 import Html.Attributes as Attr
@@ -24,7 +24,7 @@ blank =
     Rendered ""
 
 
-render : Screen -> Wallpaper -> Rendered
+render : Screen -> Pattern -> Rendered
 render screen chosen =
     Rendered (draw (columns screen) (rows screen) chosen)
 
@@ -79,7 +79,7 @@ rows screen =
 -- PATTERN
 
 
-type Wallpaper
+type Pattern
     = Diagonals { phase : Float }
     | Waves { fx : Float, fy : Float, phase : Float }
     | Ripples { fx : Float, cx : Float, cy : Float }
@@ -89,18 +89,18 @@ type Wallpaper
 -- GENERATE
 
 
-generator : Random.Generator Wallpaper
+generator : Random.Generator Pattern
 generator =
     Random.uniform diagonalsGenerator [ wavesGenerator, ripplesGenerator ]
         |> Random.andThen identity
 
 
-diagonalsGenerator : Random.Generator Wallpaper
+diagonalsGenerator : Random.Generator Pattern
 diagonalsGenerator =
     Random.map (\phase -> Diagonals { phase = phase }) angle
 
 
-wavesGenerator : Random.Generator Wallpaper
+wavesGenerator : Random.Generator Pattern
 wavesGenerator =
     Random.map3 (\fx fy phase -> Waves { fx = fx, fy = fy, phase = phase })
         frequency
@@ -108,7 +108,7 @@ wavesGenerator =
         angle
 
 
-ripplesGenerator : Random.Generator Wallpaper
+ripplesGenerator : Random.Generator Pattern
 ripplesGenerator =
     Random.map3 (\fx cx cy -> Ripples { fx = fx, cx = cx, cy = cy })
         frequency
@@ -130,7 +130,7 @@ angle =
 -- RENDER
 
 
-draw : Int -> Int -> Wallpaper -> String
+draw : Int -> Int -> Pattern -> String
 draw wide tall chosen =
     List.range 0 (tall - 1)
         |> List.map
@@ -138,7 +138,7 @@ draw wide tall chosen =
         |> String.join "\n"
 
 
-charAt : Int -> Int -> Wallpaper -> Int -> Int -> String
+charAt : Int -> Int -> Pattern -> Int -> Int -> String
 charAt wide tall chosen x y =
     case chosen of
         Diagonals { phase } ->

@@ -26,7 +26,6 @@ import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
 import Task
 import Time
-import Timer
 import Torus exposing (Torus)
 import Walker exposing (Walker)
 import Wallpaper exposing (Pattern, Rendered)
@@ -219,8 +218,8 @@ update msg model =
         AnimationFramePassed delta ->
             ( { model
                 | elapsed = model.elapsed + delta
-                , shock = Timer.advance Board.shockLifetime delta model.shock
-                , cord = Timer.advance Cord.pullDuration delta model.cord
+                , shock = advance Board.shockLifetime delta model.shock
+                , cord = advance Cord.pullDuration delta model.cord
                 , boids = Boid.step delta (field model) model.pointer model.boids
                 , walker = Walker.step delta (Torus.around model.screen) (ground model.screen) model.pointer model.walker
                 , eyes = List.filterMap (Eye.alive model.elapsed model.pointer) model.eyes
@@ -294,6 +293,24 @@ startGenerator cell =
 startShock : Cell -> Model -> Model
 startShock cell model =
     { model | shock = Just { origin = cell, elapsed = 0 } }
+
+
+advance : Millis -> Millis -> Maybe { a | elapsed : Millis } -> Maybe { a | elapsed : Millis }
+advance lifetime delta timer =
+    case timer of
+        Nothing ->
+            Nothing
+
+        Just current ->
+            let
+                elapsed =
+                    current.elapsed + delta
+            in
+            if elapsed > lifetime then
+                Nothing
+
+            else
+                Just { current | elapsed = elapsed }
 
 
 

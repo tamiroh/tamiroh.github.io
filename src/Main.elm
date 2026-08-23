@@ -380,7 +380,7 @@ view model =
                     { ink = "#eeeeee" }
 
                 Dark ->
-                    { ink = "#111111" }
+                    { ink = "#242424" }
 
         cursorBulge : Float
         cursorBulge =

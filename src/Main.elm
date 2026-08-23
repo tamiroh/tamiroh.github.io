@@ -50,7 +50,7 @@ main =
 
 type alias Model =
     { play : Play
-    , backdrop : String
+    , wallpaper : String
     , shock : Maybe Shock
     , elapsed : Millis
     , theme : Theme
@@ -66,7 +66,7 @@ type alias Model =
 init : () -> ( Model, Cmd Msg )
 init _ =
     ( { play = Fresh
-      , backdrop = ""
+      , wallpaper = ""
       , shock = Nothing
       , elapsed = 0
       , theme = Light
@@ -242,7 +242,7 @@ update msg model =
 
         -- RANDOM
         PatternGenerated pattern ->
-            ( { model | backdrop = Pattern.toText (patternColumns model.screen) (patternRows model.screen) pattern }, Cmd.none )
+            ( { model | wallpaper = Pattern.toText (wallpaperColumns model.screen) (wallpaperRows model.screen) pattern }, Cmd.none )
 
         BoidsPlaced boids ->
             ( { model | boids = boids }, Cmd.none )
@@ -281,7 +281,7 @@ view model =
         ]
         [ pageStyle model.theme
         , backgroundLayer model.theme
-        , patternLayer model.theme model.backdrop
+        , wallpaperLayer model.theme model.wallpaper
         , eyeLayer model.theme model.screen model.elapsed model.eyes
         , boidLayer model.theme model.screen model.boids
         , groundLayer model.theme model.screen model.walker
@@ -449,17 +449,17 @@ groundLayer theme screen walker =
         )
 
 
-patternLayer : Theme -> String -> Html msg
-patternLayer theme text =
+wallpaperLayer : Theme -> String -> Html msg
+wallpaperLayer theme text =
     Html.pre
         [ Attr.style "position" "fixed"
         , Attr.style "inset" "0"
         , Attr.style "margin" "0"
         , Attr.style "overflow" "hidden"
         , Attr.style "font-family" "monospace"
-        , Attr.style "font-size" (String.fromFloat patternFontSize ++ "px")
-        , Attr.style "line-height" (String.fromFloat patternLineHeight)
-        , Attr.style "color" (patternInk theme)
+        , Attr.style "font-size" (String.fromFloat wallpaperFontSize ++ "px")
+        , Attr.style "line-height" (String.fromFloat wallpaperLineHeight)
+        , Attr.style "color" (wallpaperInk theme)
         , Attr.style "pointer-events" "none"
         , Attr.style "user-select" "none"
         ]
@@ -519,32 +519,32 @@ ground screen =
 
 
 
--- BACKDROP
+-- WALLPAPER
 
 
-patternFontSize : Float
-patternFontSize =
+wallpaperFontSize : Float
+wallpaperFontSize =
     13
 
 
-patternLineHeight : Float
-patternLineHeight =
+wallpaperLineHeight : Float
+wallpaperLineHeight =
     1.2
 
 
-patternCharWidth : Float
-patternCharWidth =
-    patternFontSize * 0.45
+wallpaperCharWidth : Float
+wallpaperCharWidth =
+    wallpaperFontSize * 0.45
 
 
-patternColumns : Screen -> Int
-patternColumns screen =
-    ceiling (screen.width / patternCharWidth) + 1
+wallpaperColumns : Screen -> Int
+wallpaperColumns screen =
+    ceiling (screen.width / wallpaperCharWidth) + 1
 
 
-patternRows : Screen -> Int
-patternRows screen =
-    ceiling (screen.height / (patternFontSize * patternLineHeight)) + 1
+wallpaperRows : Screen -> Int
+wallpaperRows screen =
+    ceiling (screen.height / (wallpaperFontSize * wallpaperLineHeight)) + 1
 
 
 
@@ -586,8 +586,8 @@ paper theme =
             "#000000"
 
 
-patternInk : Theme -> String
-patternInk theme =
+wallpaperInk : Theme -> String
+wallpaperInk theme =
     case theme of
         Light ->
             "#eeeeee"

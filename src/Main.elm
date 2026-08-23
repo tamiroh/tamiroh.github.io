@@ -28,7 +28,7 @@ import Svg.Attributes as SvgAttr
 import Task
 import Time
 import Walker exposing (Walker)
-import Wallpaper exposing (Wallpaper)
+import Wallpaper exposing (Rendered, Wallpaper)
 
 
 
@@ -51,7 +51,7 @@ main =
 
 type alias Model =
     { play : Play
-    , wallpaper : Wallpaper
+    , wallpaper : Rendered
     , shock : Maybe Shock
     , elapsed : Millis
     , theme : Theme
@@ -230,7 +230,7 @@ update msg model =
         SecondPassed ->
             ( model
             , Cmd.batch
-                [ Random.generate WallpaperMade (Wallpaper.generator model.screen)
+                [ Random.generate WallpaperMade Wallpaper.generator
                 , Random.generate EyeOpened (Eye.generator (field model) model.elapsed)
                 ]
             )
@@ -259,7 +259,7 @@ update msg model =
             ( { model | screen = screen }
             , Cmd.batch
                 [ Random.generate BoidsPlaced (Boid.generator (field { model | screen = screen }))
-                , Random.generate WallpaperMade (Wallpaper.generator screen)
+                , Random.generate WallpaperMade Wallpaper.generator
                 ]
             )
 
@@ -268,7 +268,7 @@ update msg model =
 
         -- RANDOM
         WallpaperMade made ->
-            ( { model | wallpaper = made }, Cmd.none )
+            ( { model | wallpaper = Wallpaper.render model.screen made }, Cmd.none )
 
         BoidsPlaced boids ->
             ( { model | boids = boids }, Cmd.none )

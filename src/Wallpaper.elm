@@ -1,4 +1,4 @@
-module Wallpaper exposing (Wallpaper, blank, generator, view)
+module Wallpaper exposing (Rendered, Wallpaper, blank, generator, render, view)
 
 import Html exposing (Html)
 import Html.Attributes as Attr
@@ -10,22 +10,22 @@ import Screen exposing (Screen)
 -- WALLPAPER
 
 
-type Wallpaper
-    = Wallpaper String
+type Rendered
+    = Rendered String
 
 
-blank : Wallpaper
+blank : Rendered
 blank =
-    Wallpaper ""
+    Rendered ""
 
 
-generator : Screen -> Random.Generator Wallpaper
-generator screen =
-    Random.map (\chosen -> Wallpaper (render (columns screen) (rows screen) chosen)) design
+render : Screen -> Wallpaper -> Rendered
+render screen chosen =
+    Rendered (draw (columns screen) (rows screen) chosen)
 
 
-view : String -> Wallpaper -> Html msg
-view ink (Wallpaper text) =
+view : String -> Rendered -> Html msg
+view ink (Rendered text) =
     Html.pre
         [ Attr.style "position" "fixed"
         , Attr.style "inset" "0"
@@ -71,10 +71,10 @@ rows screen =
 
 
 
--- DESIGN
+-- PATTERN
 
 
-type Design
+type Wallpaper
     = Diagonals { phase : Float }
     | Waves { fx : Float, fy : Float, phase : Float }
     | Ripples { fx : Float, cx : Float, cy : Float }
@@ -84,18 +84,18 @@ type Design
 -- GENERATE
 
 
-design : Random.Generator Design
-design =
+generator : Random.Generator Wallpaper
+generator =
     Random.uniform diagonalsGenerator [ wavesGenerator, ripplesGenerator ]
         |> Random.andThen identity
 
 
-diagonalsGenerator : Random.Generator Design
+diagonalsGenerator : Random.Generator Wallpaper
 diagonalsGenerator =
     Random.map (\phase -> Diagonals { phase = phase }) angle
 
 
-wavesGenerator : Random.Generator Design
+wavesGenerator : Random.Generator Wallpaper
 wavesGenerator =
     Random.map3 (\fx fy phase -> Waves { fx = fx, fy = fy, phase = phase })
         frequency
@@ -103,7 +103,7 @@ wavesGenerator =
         angle
 
 
-ripplesGenerator : Random.Generator Design
+ripplesGenerator : Random.Generator Wallpaper
 ripplesGenerator =
     Random.map3 (\fx cx cy -> Ripples { fx = fx, cx = cx, cy = cy })
         frequency
@@ -125,15 +125,15 @@ angle =
 -- RENDER
 
 
-render : Int -> Int -> Design -> String
-render wide tall chosen =
+draw : Int -> Int -> Wallpaper -> String
+draw wide tall chosen =
     List.range 0 (tall - 1)
         |> List.map
             (\y -> String.concat (List.map (\x -> charAt wide tall chosen x y) (List.range 0 (wide - 1))))
         |> String.join "\n"
 
 
-charAt : Int -> Int -> Design -> Int -> Int -> String
+charAt : Int -> Int -> Wallpaper -> Int -> Int -> String
 charAt wide tall chosen x y =
     case chosen of
         Diagonals { phase } ->

@@ -252,9 +252,14 @@ update msg model =
         SecondPassed ->
             ( model
             , Cmd.batch
-                [ Random.generate PatternChosen Wallpaper.generator
-                , Random.generate EyeOpened (Eye.generator (field model.screen) model.elapsed)
-                ]
+                (Random.generate PatternChosen Wallpaper.generator
+                    :: (if model.theme == Dark then
+                            [ Random.generate EyeOpened (Eye.generator (field model.screen) model.elapsed) ]
+
+                        else
+                            []
+                       )
+                )
             )
 
         -- ENVIRONMENT

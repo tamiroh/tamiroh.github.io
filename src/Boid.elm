@@ -5,6 +5,7 @@ import Geometry exposing (Position, Vector)
 import Millis exposing (Millis)
 import Random
 import Screen exposing (Screen)
+import Torus exposing (Torus)
 
 
 
@@ -70,7 +71,7 @@ placeGenerator field attempts =
         |> Random.andThen
             (\point ->
                 if attempts <= 0 || Field.fits (clearance + radius) field point then
-                    Random.constant (confine field point)
+                    Random.constant (confine (Torus.around field.screen) field point)
 
                 else
                     placeGenerator field (attempts - 1)
@@ -98,8 +99,11 @@ step delta field pointer boids =
 steer : Float -> Field -> Maybe Position -> List Boid -> Boid -> Boid
 steer dt field pointer boids boid =
     let
+        torus =
+            Torus.around field.screen
+
         near =
-            neighborsOf field.screen boid boids
+            neighborsOf torus boid boids
 
         ( sx, sy ) =
             separation near
@@ -114,7 +118,7 @@ steer dt field pointer boids boid =
             Field.repel (clearance + radius) field ( boid.x, boid.y )
 
         ( fx, fy ) =
-            flee field.screen pointer boid
+            flee torus pointer boid
 
         ( vx, vy ) =
             clampSpeed
@@ -123,7 +127,7 @@ steer dt field pointer boids boid =
                 )
 
         ( x, y ) =
-            confine field ( boid.x + vx * dt, boid.y + vy * dt )
+            confine torus field ( boid.x + vx * dt, boid.y + vy * dt )
     in
     { x = x, y = y, vx = vx, vy = vy }
 
@@ -191,16 +195,13 @@ type alias Neighbor =
     }
 
 
-neighborsOf : Screen -> Boid -> List Boid -> List Neighbor
-neighborsOf screen boid boids =
+neighborsOf : Torus -> Boid -> List Boid -> List Neighbor
+neighborsOf torus boid boids =
     List.filterMap
         (\other ->
             let
-                dx =
-                    wrapDelta screen.width (boid.x - other.x)
-
-                dy =
-                    wrapDelta screen.height (boid.y - other.y)
+                ( dx, dy ) =
+                    Torus.delta torus ( boid.x, boid.y ) ( other.x, other.y )
 
                 apart =
                     sqrt (dx * dx + dy * dy)
@@ -290,19 +291,16 @@ fleeRange =
     120
 
 
-flee : Screen -> Maybe Position -> Boid -> Vector
-flee screen pointer boid =
+flee : Torus -> Maybe Position -> Boid -> Vector
+flee torus pointer boid =
     case pointer of
         Nothing ->
             ( 0, 0 )
 
         Just ( x, y ) ->
             let
-                dx =
-                    wrapDelta screen.width (boid.x - x)
-
-                dy =
-                    wrapDelta screen.height (boid.y - y)
+                ( dx, dy ) =
+                    Torus.delta torus ( boid.x, boid.y ) ( x, y )
 
                 apart =
                     sqrt (dx * dx + dy * dy)
@@ -338,55 +336,11 @@ normalize ( x, y ) =
 -- TORUS
 
 
-wrap : Float -> Float -> Float
-wrap span value =
-    if span <= 0 then
-        value
-
-    else
-        value - span * toFloat (floor (value / span))
-
-
-wrapDelta : Float -> Float -> Float
-wrapDelta span value =
-    if value > span / 2 then
-        value - span
-
-    else if value < negate (span / 2) then
-        value + span
-
-    else
-        value
-
-
-confine : Field -> Position -> Position
-confine field point =
-    let
-        ( x, y ) =
-            Field.expel radius field point
-    in
-    ( wrap field.screen.width x, wrap field.screen.height y )
+confine : Torus -> Field -> Position -> Position
+confine torus field point =
+    Torus.wrap torus (Field.expel radius field point)
 
 
 places : Screen -> Boid -> List Position
 places screen boid =
-    let
-        xs =
-            boid.x :: mirror screen.width boid.x
-
-        ys =
-            boid.y :: mirror screen.height boid.y
-    in
-    List.concatMap (\x -> List.map (Tuple.pair x) ys) xs
-
-
-mirror : Float -> Float -> List Float
-mirror span value =
-    if value < radius then
-        [ value + span ]
-
-    else if value > span - radius then
-        [ value - span ]
-
-    else
-        []
+    Torus.copies radius (Torus.around screen) ( boid.x, boid.y )

@@ -5,6 +5,7 @@ import Millis exposing (Millis)
 import Screen exposing (Screen)
 import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
+import Torus exposing (Torus)
 
 
 
@@ -34,7 +35,7 @@ step : Millis -> Screen -> Float -> Maybe Position -> Walker -> Walker
 step delta screen level pointer (Walker walker) =
     let
         current =
-            pace screen level walker.walked pointer
+            pace (Torus.around screen) level walker.walked pointer
     in
     Walker
         { walked = walker.walked + current * delta / 1000
@@ -45,8 +46,11 @@ step delta screen level pointer (Walker walker) =
 view : Look -> Screen -> Float -> Walker -> List (Svg msg)
 view look screen level (Walker walker) =
     let
+        torus =
+            Torus.around screen
+
         here =
-            strolled screen walker.walked
+            strolled torus walker.walked
 
         hurry =
             max 0 (walker.pace / speed - 1)
@@ -67,36 +71,15 @@ view look screen level (Walker walker) =
                 , standing = walker.pace <= 0
                 }
         )
-        (places screen.width here)
+        (Torus.copiesX width torus here)
 
 
 
 -- PACE
 
 
-wrap : Float -> Float -> Float
-wrap span value =
-    if span <= 0 then
-        value
-
-    else
-        value - span * toFloat (floor (value / span))
-
-
-wrapDelta : Float -> Float -> Float
-wrapDelta span value =
-    if value > span / 2 then
-        value - span
-
-    else if value < negate (span / 2) then
-        value + span
-
-    else
-        value
-
-
-pace : Screen -> Float -> Float -> Maybe Position -> Float
-pace screen level walked pointer =
+pace : Torus -> Float -> Float -> Maybe Position -> Float
+pace torus level walked pointer =
     case pointer of
         Nothing ->
             speed
@@ -104,7 +87,7 @@ pace screen level walked pointer =
         Just ( px, py ) ->
             let
                 aside =
-                    wrapDelta screen.width (strolled screen walked - px)
+                    Torus.deltaX torus (strolled torus walked) px
 
                 above =
                     level - height / 2 - py
@@ -132,21 +115,9 @@ pace screen level walked pointer =
                 )
 
 
-strolled : Screen -> Float -> Float
-strolled screen walked =
-    wrap screen.width (screen.width - walked)
-
-
-places : Float -> Float -> List Float
-places span here =
-    if here < width then
-        [ here, here + span ]
-
-    else if here > span - width then
-        [ here, here - span ]
-
-    else
-        [ here ]
+strolled : Torus -> Float -> Float
+strolled torus walked =
+    Torus.wrapX torus (negate walked)
 
 
 speed : Float

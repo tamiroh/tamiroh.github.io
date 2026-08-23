@@ -175,16 +175,28 @@ update msg model =
     case msg of
         -- PLAYER
         CellClicked cell ->
+            let
+                startShock : Model -> Model
+                startShock target =
+                    { target | shock = Just { origin = cell, elapsed = 0 } }
+
+                startGenerator : Random.Generator Play
+                startGenerator =
+                    Random.uniform
+                        (Random.map (\game -> Mines (Minesweeper.reveal cell game)) (Minesweeper.start cell))
+                        [ Random.constant (Discs Othello.new) ]
+                        |> Random.andThen identity
+            in
             case model.play of
                 Fresh ->
-                    ( startShock cell model, Random.generate GameStarted (startGenerator cell) )
+                    ( startShock model, Random.generate GameStarted startGenerator )
 
                 Mines game ->
                     if Minesweeper.finished game then
                         ( model, Cmd.none )
 
                     else
-                        ( startShock cell { model | play = Mines (Minesweeper.reveal cell game) }, Cmd.none )
+                        ( startShock { model | play = Mines (Minesweeper.reveal cell game) }, Cmd.none )
 
                 Discs othello ->
                     case Othello.play cell othello of
@@ -192,7 +204,7 @@ update msg model =
                             ( model, Cmd.none )
 
                         Just next ->
-                            ( startShock cell { model | play = Discs next }, think next )
+                            ( startShock { model | play = Discs next }, think next )
 
         CordPulled ->
             ( { model | theme = toggle model.theme, cord = Just { elapsed = 0 } }, Cmd.none )
@@ -279,19 +291,6 @@ update msg model =
 
                 Just eye ->
                     ( { model | eyes = eye :: model.eyes }, Cmd.none )
-
-
-startGenerator : Cell -> Random.Generator Play
-startGenerator cell =
-    Random.uniform
-        (Random.map (\game -> Mines (Minesweeper.reveal cell game)) (Minesweeper.start cell))
-        [ Random.constant (Discs Othello.new) ]
-        |> Random.andThen identity
-
-
-startShock : Cell -> Model -> Model
-startShock cell model =
-    { model | shock = Just { origin = cell, elapsed = 0 } }
 
 
 

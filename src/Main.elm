@@ -6,7 +6,7 @@ import Boid exposing (Boid)
 import Browser
 import Browser.Dom
 import Browser.Events
-import Cord
+import Cord exposing (Pull)
 import Cursor
 import Eye exposing (Eye)
 import Field exposing (Field, Obstacle)
@@ -18,7 +18,7 @@ import Html.Events
 import Json.Decode
 import Millis exposing (Millis)
 import Minesweeper
-import Motion exposing (Pull, Shock)
+import Motion exposing (Shock)
 import Othello
 import Process
 import Random
@@ -220,7 +220,7 @@ update msg model =
             ( { model
                 | elapsed = model.elapsed + delta
                 , shock = Motion.advance (Motion.shockLifetime Grid.side) delta model.shock
-                , cord = Motion.advance Motion.pullDuration delta model.cord
+                , cord = Motion.advance Cord.pullDuration delta model.cord
                 , boids = Boid.step delta (field model) model.pointer model.boids
                 , walker = Walker.step delta (Torus.around model.screen) (ground model.screen) model.pointer model.walker
                 , eyes = List.filterMap (Eye.alive model.elapsed model.pointer) model.eyes
@@ -322,7 +322,7 @@ view model =
             , Attr.style "pointer-events" "none"
             ]
             [ boardLayer model ]
-        , Cord.view (look model.theme) CordPulled (Motion.pullOffset model.cord)
+        , Cord.view (look model.theme) CordPulled model.cord
         ]
 
 

@@ -1,4 +1,4 @@
-module Motion exposing (Pull, Shock, advance, offset, pullDuration, pullOffset, shockLifetime)
+module Motion exposing (Shock, advance, offset, shockLifetime)
 
 import Geometry exposing (Vector)
 import Millis exposing (Millis)
@@ -12,10 +12,6 @@ type alias Shock =
     { origin : ( Int, Int )
     , elapsed : Millis
     }
-
-
-type alias Pull =
-    { elapsed : Millis }
 
 
 advance : Millis -> Millis -> Maybe { a | elapsed : Millis } -> Maybe { a | elapsed : Millis }
@@ -109,47 +105,6 @@ displacement cellCount shock ( column, row ) =
                         shockAmplitude * sin (pi * local / shockDuration) * (distance / maxDistance cellCount) ^ 2
                 in
                 ( dx / distance * amplitude, dy / distance * amplitude )
-
-
-
--- PULL
-
-
-pullAmplitude : Float
-pullAmplitude =
-    20
-
-
-pullDuration : Millis
-pullDuration =
-    600
-
-
-pullCycles : Float
-pullCycles =
-    1.25
-
-
-pullDamping : Float
-pullDamping =
-    4
-
-
-pullOffset : Maybe Pull -> Float
-pullOffset pull =
-    case pull of
-        Nothing ->
-            0
-
-        Just { elapsed } ->
-            let
-                phase =
-                    elapsed / pullDuration
-            in
-            pullAmplitude
-                * sin (pullCycles * 2 * pi * phase)
-                * e
-                ^ negate (pullDamping * phase)
 
 
 

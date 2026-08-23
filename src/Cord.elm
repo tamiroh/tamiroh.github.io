@@ -1,9 +1,10 @@
-module Cord exposing (Look, view)
+module Cord exposing (Look, Pull, pullDuration, view)
 
 import Cursor
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events
+import Millis exposing (Millis)
 import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
 
@@ -15,8 +16,12 @@ type alias Look =
     }
 
 
-view : Look -> msg -> Float -> Html msg
-view look pulled dy =
+type alias Pull =
+    { elapsed : Millis }
+
+
+view : Look -> msg -> Maybe Pull -> Html msg
+view look pulled pull =
     Html.div
         [ Attr.style "position" "fixed"
         , Attr.style "top" "0"
@@ -25,7 +30,7 @@ view look pulled dy =
         , Attr.style "user-select" "none"
         , Html.Events.onClick pulled
         ]
-        [ hanging look dy ]
+        [ hanging look (pullOffset pull) ]
 
 
 hanging : Look -> Float -> Svg msg
@@ -81,3 +86,40 @@ gripWidth =
 gripHeight : Float
 gripHeight =
     16
+
+
+pullAmplitude : Float
+pullAmplitude =
+    20
+
+
+pullDuration : Millis
+pullDuration =
+    600
+
+
+pullCycles : Float
+pullCycles =
+    1.25
+
+
+pullDamping : Float
+pullDamping =
+    4
+
+
+pullOffset : Maybe Pull -> Float
+pullOffset pull =
+    case pull of
+        Nothing ->
+            0
+
+        Just { elapsed } ->
+            let
+                phase =
+                    elapsed / pullDuration
+            in
+            pullAmplitude
+                * sin (pullCycles * 2 * pi * phase)
+                * e
+                ^ negate (pullDamping * phase)

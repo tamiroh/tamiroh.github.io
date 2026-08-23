@@ -279,17 +279,17 @@ startShock cell model =
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
+    let
+        pointerDecoder : Json.Decode.Decoder Msg
+        pointerDecoder =
+            Json.Decode.map PointerMoved positionDecoder
+    in
     Sub.batch
         [ Time.every 1000 (\_ -> SecondPassed)
         , Browser.Events.onAnimationFrameDelta AnimationFramePassed
         , Browser.Events.onResize WindowResized
         , Browser.Events.onMouseMove pointerDecoder
         ]
-
-
-pointerDecoder : Json.Decode.Decoder Msg
-pointerDecoder =
-    Json.Decode.map PointerMoved positionDecoder
 
 
 positionDecoder : Json.Decode.Decoder Position

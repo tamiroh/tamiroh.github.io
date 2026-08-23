@@ -183,7 +183,7 @@ alignmentWeight =
 
 cohesionWeight : Float
 cohesionWeight =
-    0.004
+    0.0005
 
 
 type alias Neighbor =

@@ -13,6 +13,7 @@ import Geometry exposing (Position, Screen, Vector, wrap, wrapDelta)
 import Grid exposing (Cell)
 import Html exposing (Html)
 import Html.Attributes as Attr
+import Html.Events
 import Json.Decode
 import Minesweeper
 import Motion exposing (Pull, Shock)
@@ -120,6 +121,8 @@ type Msg
     | AnimationFramePassed Float
     | SecondPassed
     | PointerMoved Position
+    | TouchEnded
+    | PointerLeft
     | GotViewport Browser.Dom.Viewport
     | WindowResized Int Int
     | PatternGenerated Pattern
@@ -140,6 +143,11 @@ subscriptions _ =
 pointerDecoder : Json.Decode.Decoder Msg
 pointerDecoder =
     Json.Decode.map PointerMoved positionDecoder
+
+
+pointerFade : Float
+pointerFade =
+    350
 
 
 positionDecoder : Json.Decode.Decoder Position
@@ -217,6 +225,12 @@ update msg model =
         PointerMoved point ->
             ( { model | pointer = Just point }, Cmd.none )
 
+        TouchEnded ->
+            ( model, Task.perform (\_ -> PointerLeft) (Process.sleep pointerFade) )
+
+        PointerLeft ->
+            ( { model | pointer = Nothing }, Cmd.none )
+
         GotViewport viewport ->
             let
                 screen =
@@ -267,7 +281,10 @@ startShock cell model =
 
 view : Model -> Html Msg
 view model =
-    Html.div []
+    Html.div
+        [ Html.Events.on "touchend" (Json.Decode.succeed TouchEnded)
+        , Html.Events.on "touchcancel" (Json.Decode.succeed TouchEnded)
+        ]
         [ pageStyle model.theme
         , backgroundLayer model.theme
         , patternLayer model.theme model.pattern
@@ -323,7 +340,6 @@ backgroundLayer theme =
         [ Attr.style "position" "fixed"
         , Attr.style "inset" "0"
         , Attr.style "background-color" (paper theme)
-        , Attr.style "pointer-events" "none"
         ]
         []
 

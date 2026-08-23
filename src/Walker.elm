@@ -1,4 +1,4 @@
-module Walker exposing (Look, Walker, start, step, view)
+module Walker exposing (Look, Walker, new, step, view)
 
 import Geometry exposing (Position)
 import Millis exposing (Millis)
@@ -25,8 +25,8 @@ type Walker
         }
 
 
-start : Walker
-start =
+new : Walker
+new =
     Walker { walked = 0, pace = speed }
 
 

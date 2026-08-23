@@ -76,7 +76,7 @@ init _ =
       , screen = { width = 0, height = 0 }
       , boids = []
       , pointer = Nothing
-      , walker = Walker.start
+      , walker = Walker.new
       , eyes = []
       , blocks = []
       }

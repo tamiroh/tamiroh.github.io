@@ -1,4 +1,4 @@
-module Cord exposing (Look, Pull, pullDuration, view)
+module Cord exposing (Look, Pull, tickPull, view)
 
 import Cursor
 import Html exposing (Html)
@@ -96,6 +96,24 @@ pullAmplitude =
 pullDuration : Millis
 pullDuration =
     600
+
+
+tickPull : Millis -> Maybe Pull -> Maybe Pull
+tickPull delta pull =
+    case pull of
+        Nothing ->
+            Nothing
+
+        Just current ->
+            let
+                elapsed =
+                    current.elapsed + delta
+            in
+            if elapsed > pullDuration then
+                Nothing
+
+            else
+                Just { current | elapsed = elapsed }
 
 
 pullCycles : Float

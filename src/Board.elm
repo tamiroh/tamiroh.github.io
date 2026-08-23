@@ -1,4 +1,4 @@
-module Board exposing (Content(..), Look, Mark(..), Scene, Shade(..), Shock, shockLifetime, size, view)
+module Board exposing (Content(..), Look, Mark(..), Scene, Shade(..), Shock, size, tickShock, view)
 
 import Cursor
 import Geometry exposing (Position, Vector)
@@ -255,6 +255,24 @@ shockDelay =
 shockLifetime : Millis
 shockLifetime =
     shockDuration + shockDelay * maxDistance
+
+
+tickShock : Millis -> Maybe Shock -> Maybe Shock
+tickShock delta shock =
+    case shock of
+        Nothing ->
+            Nothing
+
+        Just current ->
+            let
+                elapsed =
+                    current.elapsed + delta
+            in
+            if elapsed > shockLifetime then
+                Nothing
+
+            else
+                Just { current | elapsed = elapsed }
 
 
 maxDistance : Float

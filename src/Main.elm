@@ -425,9 +425,70 @@ eyeLayer theme screen now eyes =
 blockLayer : Theme -> Screen -> Millis -> List Field.Body -> Html msg
 blockLayer theme screen now blocks =
     let
-        corner : Position -> String
-        corner ( x, y ) =
+        blockRadius : Float
+        blockRadius =
+            6
+
+        point : Position -> String
+        point ( x, y ) =
             String.fromFloat x ++ "," ++ String.fromFloat y
+
+        apart : Position -> Position -> Float
+        apart ( ax, ay ) ( bx, by ) =
+            sqrt ((ax - bx) ^ 2 + (ay - by) ^ 2)
+
+        approach : Position -> Float -> Position -> Position
+        approach ( cx, cy ) distance ( tx, ty ) =
+            let
+                length =
+                    apart ( cx, cy ) ( tx, ty )
+            in
+            if length == 0 then
+                ( cx, cy )
+
+            else
+                ( cx + (tx - cx) / length * distance, cy + (ty - cy) / length * distance )
+
+        fillet : Position -> Position -> Position -> ( Position, String )
+        fillet prev corner next =
+            let
+                near =
+                    min blockRadius (min (apart corner prev) (apart corner next) / 2)
+
+                entry =
+                    approach corner near prev
+
+                exit =
+                    approach corner near next
+            in
+            ( entry, "L " ++ point entry ++ " Q " ++ point corner ++ " " ++ point exit )
+
+        rotateLeft : List a -> List a
+        rotateLeft list =
+            case list of
+                [] ->
+                    []
+
+                first :: rest ->
+                    rest ++ [ first ]
+
+        rotateRight : List a -> List a
+        rotateRight list =
+            case List.reverse list of
+                [] ->
+                    []
+
+                last :: rest ->
+                    last :: List.reverse rest
+
+        rounded : List Position -> String
+        rounded corners =
+            case List.map3 fillet (rotateRight corners) corners (rotateLeft corners) of
+                [] ->
+                    ""
+
+                ( entry, segment ) :: rest ->
+                    "M " ++ point entry ++ " " ++ segment ++ " " ++ String.join " " (List.map Tuple.second rest) ++ " Z"
 
         wobbleSeed : Obstacle -> Float
         wobbleSeed shape =
@@ -439,8 +500,8 @@ blockLayer theme screen now blocks =
 
         blockView : Field.Body -> Svg msg
         blockView block =
-            Svg.polygon
-                [ SvgAttr.points (String.join " " (List.map corner (Field.outline block.shape)))
+            Svg.path
+                [ SvgAttr.d (rounded (Field.outline block.shape))
                 , SvgAttr.fill (paper theme)
                 , SvgAttr.stroke (ink theme)
                 , SvgAttr.strokeWidth (String.fromFloat lineWidth)

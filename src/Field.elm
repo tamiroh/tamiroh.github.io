@@ -1,8 +1,9 @@
-module Field exposing (Field, Obstacle, around, blocked, expel, fits, heart, middle, outline, repel, roomy, spin, square, triangle)
+module Field exposing (Body, Field, Obstacle, around, blocked, bounce, collide, drift, expel, fits, heart, middle, outline, repel, roomy, spin, square, triangle, wrap)
 
 import Geometry exposing (Position, Vector)
 import Millis exposing (Millis)
 import Screen exposing (Screen)
+import Torus exposing (Torus)
 
 
 
@@ -353,3 +354,151 @@ area screen object =
     in
     clipped (List.minimum xs) (List.maximum xs) screen.width
         * clipped (List.minimum ys) (List.maximum ys) screen.height
+
+
+translate : Vector -> Obstacle -> Obstacle
+translate ( dx, dy ) object =
+    Obstacle (List.map (\( x, y ) -> ( x + dx, y + dy )) (outline object))
+
+
+
+-- BODY
+
+
+type alias Body =
+    { shape : Obstacle
+    , velocity : Vector
+    }
+
+
+bodyReach : Body -> Float
+bodyReach body =
+    max (width body.shape) (height body.shape) / 2
+
+
+drift : Millis -> Body -> Body
+drift delta body =
+    let
+        ( vx, vy ) =
+            body.velocity
+    in
+    { body | shape = translate ( vx * delta / 1000, vy * delta / 1000 ) body.shape }
+
+
+bounce : Screen -> Obstacle -> Body -> Body
+bounce screen board body =
+    let
+        center =
+            middle body.shape
+
+        ( cx, cy ) =
+            center
+
+        ( ex, ey ) =
+            expel (bodyReach body) (around screen [ board ]) center
+
+        ( dx, dy ) =
+            ( ex - cx, ey - cy )
+    in
+    if dx == 0 && dy == 0 then
+        body
+
+    else
+        let
+            ( nx, ny ) =
+                unit ( dx, dy )
+
+            ( vx, vy ) =
+                body.velocity
+
+            vn =
+                vx * nx + vy * ny
+        in
+        { shape = translate ( dx, dy ) body.shape
+        , velocity =
+            if vn < 0 then
+                ( vx - 2 * vn * nx, vy - 2 * vn * ny )
+
+            else
+                body.velocity
+        }
+
+
+wrap : Torus -> Body -> Body
+wrap torus body =
+    let
+        center =
+            middle body.shape
+
+        ( cx, cy ) =
+            center
+
+        ( wx, wy ) =
+            Torus.wrap torus center
+
+        ( dx, dy ) =
+            ( wx - cx, wy - cy )
+    in
+    if dx == 0 && dy == 0 then
+        body
+
+    else
+        { body | shape = translate ( dx, dy ) body.shape }
+
+
+collide : List Body -> List Body
+collide bodies =
+    let
+        indexed =
+            List.indexedMap Tuple.pair bodies
+    in
+    List.map (\( i, body ) -> List.foldl (bounceOff i) body indexed) indexed
+
+
+bounceOff : Int -> ( Int, Body ) -> Body -> Body
+bounceOff self ( index, other ) body =
+    if index == self then
+        body
+
+    else
+        let
+            ( cx, cy ) =
+                middle body.shape
+
+            ( ox, oy ) =
+                middle other.shape
+
+            dx =
+                cx - ox
+
+            dy =
+                cy - oy
+
+            apart =
+                sqrt (dx * dx + dy * dy)
+        in
+        if apart == 0 || apart >= bodyReach body + bodyReach other then
+            body
+
+        else
+            let
+                ( nx, ny ) =
+                    ( dx / apart, dy / apart )
+
+                ( vx, vy ) =
+                    body.velocity
+
+                ( ovx, ovy ) =
+                    other.velocity
+
+                vn =
+                    vx * nx + vy * ny
+
+                ovn =
+                    ovx * nx + ovy * ny
+            in
+            if vn - ovn >= 0 then
+                body
+
+            else
+                { body | velocity = ( vx - vn * nx + ovn * nx, vy - vn * ny + ovn * ny ) }

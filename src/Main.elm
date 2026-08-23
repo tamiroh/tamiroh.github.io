@@ -63,7 +63,7 @@ type alias Model =
     , pointer : Maybe Position
     , walkers : List Walker
     , eyes : List Eye
-    , blocks : List Obstacle
+    , blocks : List Field.Body
     }
 
 
@@ -120,7 +120,7 @@ type Msg
     | FieldClicked Position
     | TouchEnded
     | PointerLeft
-    | BlockPlaced Obstacle
+    | BlockPlaced Field.Body
     | GotViewport Browser.Dom.Viewport
     | WindowResized Int Int
     | PatternChosen Pattern
@@ -138,7 +138,7 @@ update msg model =
 
         field : Screen -> Field
         field screen =
-            Field.around screen (boardBlock screen :: model.blocks)
+            Field.around screen (boardBlock screen :: List.map .shape model.blocks)
 
         thinkingDelay : Millis
         thinkingDelay =
@@ -214,7 +214,13 @@ update msg model =
                 , boids = Boid.step delta (field model.screen) model.pointer model.boids
                 , walkers = List.map (Walker.step delta (Torus.around model.screen) (groundLevel model.screen) model.pointer) model.walkers
                 , eyes = List.filterMap (Eye.step model.elapsed model.pointer) model.eyes
-                , blocks = List.map (Field.spin delta) model.blocks
+                , blocks =
+                    model.blocks
+                        |> List.map (Field.drift delta)
+                        |> List.map (Field.bounce model.screen (boardBlock model.screen))
+                        |> List.map (Field.wrap (Torus.around model.screen))
+                        |> Field.collide
+                        |> List.map (\body -> { body | shape = Field.spin delta body.shape })
               }
             , Cmd.none
             )
@@ -237,12 +243,27 @@ update msg model =
                 blockSpan =
                     54
 
-                blockGenerator : Random.Generator Obstacle
-                blockGenerator =
+                driftSpeed : Float
+                driftSpeed =
+                    30
+
+                shapeGenerator : Random.Generator Obstacle
+                shapeGenerator =
                     Random.uniform (Field.triangle point blockSpan)
                         [ Field.heart point blockSpan
                         , Field.square point blockSpan
                         ]
+
+                blockGenerator : Random.Generator Field.Body
+                blockGenerator =
+                    Random.map2
+                        (\shape heading ->
+                            { shape = shape
+                            , velocity = ( cos heading * driftSpeed, sin heading * driftSpeed )
+                            }
+                        )
+                        shapeGenerator
+                        (Random.float 0 (2 * pi))
             in
             ( model, Random.generate BlockPlaced blockGenerator )
 
@@ -401,7 +422,7 @@ eyeLayer theme screen now eyes =
         (List.filterMap (Eye.view (look theme) now) eyes)
 
 
-blockLayer : Theme -> Screen -> Millis -> List Obstacle -> Html msg
+blockLayer : Theme -> Screen -> Millis -> List Field.Body -> Html msg
 blockLayer theme screen now blocks =
     let
         corner : Position -> String
@@ -409,22 +430,22 @@ blockLayer theme screen now blocks =
             String.fromFloat x ++ "," ++ String.fromFloat y
 
         wobbleSeed : Obstacle -> Float
-        wobbleSeed block =
+        wobbleSeed shape =
             let
                 ( mx, my ) =
-                    Field.middle block
+                    Field.middle shape
             in
             mx * 0.1 + my * 0.17
 
-        blockView : Obstacle -> Svg msg
+        blockView : Field.Body -> Svg msg
         blockView block =
             Svg.polygon
-                [ SvgAttr.points (String.join " " (List.map corner (Field.outline block)))
+                [ SvgAttr.points (String.join " " (List.map corner (Field.outline block.shape)))
                 , SvgAttr.fill (paper theme)
                 , SvgAttr.stroke (ink theme)
                 , SvgAttr.strokeWidth (String.fromFloat lineWidth)
                 , SvgAttr.strokeLinejoin "round"
-                , SvgAttr.transform (Transform.translate (Wobble.at now (wobbleSeed block)))
+                , SvgAttr.transform (Transform.translate (Wobble.at now (wobbleSeed block.shape)))
                 ]
                 []
     in

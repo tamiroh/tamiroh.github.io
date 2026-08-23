@@ -61,7 +61,7 @@ view ink paper stroke screen level (Walker walker) =
                 , standing = walker.pace <= 0
                 }
         )
-        (here :: seam screen.width here)
+        (places screen.width here)
 
 
 
@@ -110,16 +110,16 @@ strolled screen walked =
     wrap screen.width (screen.width - walked)
 
 
-seam : Float -> Float -> List Float
-seam span here =
+places : Float -> Float -> List Float
+places span here =
     if here < width then
-        [ here + span ]
+        [ here, here + span ]
 
     else if here > span - width then
-        [ here - span ]
+        [ here, here - span ]
 
     else
-        []
+        [ here ]
 
 
 speed : Float

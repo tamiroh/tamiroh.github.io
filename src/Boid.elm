@@ -1,4 +1,4 @@
-module Boid exposing (Boid, generator, step, wrapCopies)
+module Boid exposing (Boid, generator, places, step)
 
 import Field exposing (Field)
 import Geometry exposing (Position, Screen, Vector, wrap, wrapDelta)
@@ -346,8 +346,8 @@ confine field point =
     ( wrap field.screen.width x, wrap field.screen.height y )
 
 
-wrapCopies : Screen -> Boid -> List Position
-wrapCopies screen boid =
+places : Screen -> Boid -> List Position
+places screen boid =
     let
         xs =
             boid.x :: mirror screen.width boid.x

@@ -469,7 +469,7 @@ boidView theme screen boid =
     in
     List.map
         (\( x, y ) -> Bird.view (ink theme) (paper theme) lineWidth { x = x, y = y, heading = heading })
-        (Boid.wrapCopies screen boid)
+        (Boid.places screen boid)
 
 
 groundLayer : Theme -> Screen -> Walker -> Html msg

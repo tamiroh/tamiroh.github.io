@@ -67,26 +67,10 @@ generator field now =
                             (\( x, y ) -> { x = x, y = y, born = now, life = life, shut = Nothing })
                             place
                     )
-                    (spot field tries)
+                    (Field.spot (span / 2) field tries)
                     (Random.float 2400 4600)
         )
         (Random.float 0 1)
-
-
-spot : Field -> Int -> Random.Generator (Maybe Position)
-spot field attempts =
-    Random.map2 Tuple.pair (Random.float 0 field.screen.width) (Random.float 0 field.screen.height)
-        |> Random.andThen
-            (\point ->
-                if Field.fits (span / 2) field point then
-                    Random.constant (Just point)
-
-                else if attempts <= 0 then
-                    Random.constant Nothing
-
-                else
-                    spot field (attempts - 1)
-            )
 
 
 

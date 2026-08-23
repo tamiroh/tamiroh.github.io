@@ -1,7 +1,8 @@
-module Field exposing (Body, Field, Obstacle, around, blocked, bounce, collide, drift, expel, fits, heart, middle, outline, repel, roomy, spin, square, triangle, wrap)
+module Field exposing (Body, Field, Obstacle, around, blocked, bounce, collide, drift, expel, fits, heart, middle, outline, repel, roomy, spin, spot, square, triangle, wrap)
 
 import Geometry exposing (Position, Vector)
 import Millis exposing (Millis)
+import Random
 import Screen exposing (Screen)
 import Torus exposing (Torus)
 
@@ -40,6 +41,22 @@ roomy field =
 blocked : Field -> Float
 blocked field =
     List.sum (List.map (area field.screen) field.objects)
+
+
+spot : Float -> Field -> Int -> Random.Generator (Maybe Position)
+spot margin field attempts =
+    Random.map2 Tuple.pair (Random.float 0 field.screen.width) (Random.float 0 field.screen.height)
+        |> Random.andThen
+            (\point ->
+                if fits margin field point then
+                    Random.constant (Just point)
+
+                else if attempts <= 0 then
+                    Random.constant Nothing
+
+                else
+                    spot margin field (attempts - 1)
+            )
 
 
 

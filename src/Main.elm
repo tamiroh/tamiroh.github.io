@@ -125,6 +125,7 @@ type Msg
     | WindowResized Int Int
     | PatternChosen Pattern
     | BoidsPlaced (List Boid)
+    | BlocksPlaced (List (Maybe Field.Body))
     | WalkersPlaced (List Walker)
     | EyeOpened (Maybe Eye)
 
@@ -151,6 +152,29 @@ update msg model =
 
             else
                 Cmd.none
+
+        blockSpan : Float
+        blockSpan =
+            54
+
+        driftSpeed : Float
+        driftSpeed =
+            30
+
+        blockGenerator : Position -> Random.Generator Field.Body
+        blockGenerator point =
+            Random.map2
+                (\shape heading ->
+                    { shape = shape
+                    , velocity = ( cos heading * driftSpeed, sin heading * driftSpeed )
+                    }
+                )
+                (Random.uniform (Field.triangle point blockSpan)
+                    [ Field.heart point blockSpan
+                    , Field.square point blockSpan
+                    ]
+                )
+                (Random.float 0 (2 * pi))
     in
     case msg of
         -- PLAYER
@@ -238,34 +262,7 @@ update msg model =
             ( { model | pointer = Just point }, Cmd.none )
 
         FieldClicked point ->
-            let
-                blockSpan : Float
-                blockSpan =
-                    54
-
-                driftSpeed : Float
-                driftSpeed =
-                    30
-
-                shapeGenerator : Random.Generator Obstacle
-                shapeGenerator =
-                    Random.uniform (Field.triangle point blockSpan)
-                        [ Field.heart point blockSpan
-                        , Field.square point blockSpan
-                        ]
-
-                blockGenerator : Random.Generator Field.Body
-                blockGenerator =
-                    Random.map2
-                        (\shape heading ->
-                            { shape = shape
-                            , velocity = ( cos heading * driftSpeed, sin heading * driftSpeed )
-                            }
-                        )
-                        shapeGenerator
-                        (Random.float 0 (2 * pi))
-            in
-            ( model, Random.generate BlockPlaced blockGenerator )
+            ( model, Random.generate BlockPlaced (blockGenerator point) )
 
         TouchEnded ->
             let
@@ -294,11 +291,33 @@ update msg model =
                 walkerCount : Int
                 walkerCount =
                     3
+
+                blockCount : Int
+                blockCount =
+                    4
+
+                blockSpotAttempts : Int
+                blockSpotAttempts =
+                    8
+
+                blockAt : Random.Generator (Maybe Field.Body)
+                blockAt =
+                    Field.spot (blockSpan / 2) (field screen) blockSpotAttempts
+                        |> Random.andThen
+                            (\maybePoint ->
+                                case maybePoint of
+                                    Just point ->
+                                        Random.map Just (blockGenerator point)
+
+                                    Nothing ->
+                                        Random.constant Nothing
+                            )
             in
             ( { model | screen = screen }
             , Cmd.batch
                 [ Random.generate BoidsPlaced (Boid.generator (field screen))
                 , Random.generate WalkersPlaced (Random.list walkerCount (Walker.generator screen))
+                , Random.generate BlocksPlaced (Random.list blockCount blockAt)
                 , Random.generate PatternChosen Wallpaper.generator
                 ]
             )
@@ -312,6 +331,9 @@ update msg model =
 
         BoidsPlaced boids ->
             ( { model | boids = boids }, Cmd.none )
+
+        BlocksPlaced blocks ->
+            ( { model | blocks = List.filterMap identity blocks }, Cmd.none )
 
         WalkersPlaced walkers ->
             ( { model | walkers = walkers }, Cmd.none )

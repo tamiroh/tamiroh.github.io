@@ -1,7 +1,8 @@
 module Eye exposing (Eye, alive, generator, view)
 
 import Field exposing (Field)
-import Geometry exposing (Millis, Position)
+import Geometry exposing (Position)
+import Millis exposing (Millis)
 import Random
 import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr

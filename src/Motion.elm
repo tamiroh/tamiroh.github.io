@@ -1,6 +1,7 @@
 module Motion exposing (Pull, Shock, advance, offset, pullDuration, pullOffset, shockLifetime)
 
-import Geometry exposing (Millis, Vector)
+import Geometry exposing (Vector)
+import Millis exposing (Millis)
 
 
 

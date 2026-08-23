@@ -9,12 +9,13 @@ import Cord
 import Cursor
 import Eye exposing (Eye)
 import Field exposing (Field)
-import Geometry exposing (Millis, Position, Screen, Vector, wrap, wrapDelta)
+import Geometry exposing (Position, Screen, Vector, wrap, wrapDelta)
 import Grid exposing (Cell)
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events
 import Json.Decode
+import Millis exposing (Millis)
 import Minesweeper
 import Motion exposing (Pull, Shock)
 import Othello

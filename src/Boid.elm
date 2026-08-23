@@ -1,7 +1,8 @@
 module Boid exposing (Boid, flock, generator, wrapCopies)
 
 import Field exposing (Field)
-import Geometry exposing (Millis, Position, Screen, Vector, wrap, wrapDelta)
+import Geometry exposing (Position, Screen, Vector, wrap, wrapDelta)
+import Millis exposing (Millis)
 import Random
 
 

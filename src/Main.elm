@@ -9,7 +9,7 @@ import Cord
 import Cursor
 import Eye exposing (Eye)
 import Field exposing (Field)
-import Geometry exposing (Position, Screen, Vector, wrap, wrapDelta)
+import Geometry exposing (Position, Screen, Vector)
 import Grid exposing (Cell)
 import Html exposing (Html)
 import Html.Attributes as Attr
@@ -28,7 +28,7 @@ import Svg.Attributes as SvgAttr
 import Svg.Events
 import Task
 import Time
-import Walker
+import Walker exposing (Walker)
 
 
 
@@ -59,7 +59,7 @@ type alias Model =
     , screen : Screen
     , boids : List Boid
     , pointer : Maybe Position
-    , walked : Float
+    , walker : Walker
     , eyes : List Eye
     }
 
@@ -75,7 +75,7 @@ init _ =
       , screen = { width = 0, height = 0 }
       , boids = []
       , pointer = Nothing
-      , walked = 0
+      , walker = Walker.start
       , eyes = []
       }
     , Cmd.batch
@@ -208,7 +208,7 @@ update msg model =
                 , shock = Motion.advance (Motion.shockLifetime Grid.count) delta model.shock
                 , cord = Motion.advance Motion.pullDuration delta model.cord
                 , boids = Boid.flock delta (field model.screen) model.pointer model.boids
-                , walked = model.walked + walkerPace model * delta / 1000
+                , walker = Walker.step delta model.screen (ground model.screen) model.pointer model.walker
                 , eyes = List.filterMap (Eye.alive model.elapsed model.pointer) model.eyes
               }
             , Cmd.none
@@ -291,7 +291,7 @@ view model =
         , patternLayer model.theme model.backdrop
         , eyeLayer model.theme model.screen model.elapsed model.eyes
         , boidLayer model.theme model.screen model.boids
-        , groundLayer model.theme model.screen model.walked (walkerPace model / walkerSpeed)
+        , groundLayer model.theme model.screen model.walker
         , Html.div
             [ Attr.style "position" "fixed"
             , Attr.style "inset" "0"
@@ -380,23 +380,11 @@ boidView theme screen boid =
         (Boid.wrapCopies screen boid)
 
 
-groundLayer : Theme -> Screen -> Float -> Float -> Html msg
-groundLayer theme screen walked rate =
+groundLayer : Theme -> Screen -> Walker -> Html msg
+groundLayer theme screen walker =
     let
         level =
             ground screen
-
-        here =
-            strolled screen walked
-
-        hurry =
-            max 0 (rate - 1)
-
-        swing =
-            sin (walked / walkerStep * pi) * walkerSwing * min walkerFlail (1 + hurry * 0.4)
-
-        tilt =
-            negate (min walkerTilt (hurry * 3))
     in
     Svg.svg
         [ SvgAttr.width (String.fromFloat screen.width)
@@ -422,19 +410,7 @@ groundLayer theme screen walked rate =
                 , SvgAttr.strokeWidth (String.fromFloat lineWidth)
                 ]
                 []
-            :: List.map
-                (\x ->
-                    Walker.view (ink theme)
-                        (paper theme)
-                        lineWidth
-                        { x = x
-                        , ground = level - walkerLift
-                        , swing = swing
-                        , tilt = tilt
-                        , standing = rate <= 0
-                        }
-                )
-                (here :: seam screen.width here)
+            :: Walker.view (ink theme) (paper theme) lineWidth screen level walker
         )
 
 
@@ -841,135 +817,6 @@ groundDepth =
 ground : Screen -> Float
 ground screen =
     screen.height - groundDepth
-
-
-
--- WALKER
-
-
-walkerSpeed : Float
-walkerSpeed =
-    26
-
-
-walkerStep : Float
-walkerStep =
-    26
-
-
-walkerSwing : Float
-walkerSwing =
-    10
-
-
-walkerSense : Float
-walkerSense =
-    220
-
-
-walkerRush : Float
-walkerRush =
-    4
-
-
-walkerFlail : Float
-walkerFlail =
-    2.8
-
-
-walkerTilt : Float
-walkerTilt =
-    16
-
-
-walkerLift : Float
-walkerLift =
-    3
-
-
-walkerPanic : Float
-walkerPanic =
-    3
-
-
-walkerPanicRange : Float
-walkerPanicRange =
-    60
-
-
-walkerPanicFloor : Float
-walkerPanicFloor =
-    12
-
-
-walkerLimit : Float
-walkerLimit =
-    30
-
-
-walkerFocus : Float
-walkerFocus =
-    40
-
-
-walkerBrake : Float
-walkerBrake =
-    1.8
-
-
-walkerPace : Model -> Float
-walkerPace model =
-    case model.pointer of
-        Nothing ->
-            walkerSpeed
-
-        Just ( px, py ) ->
-            let
-                aside =
-                    wrapDelta model.screen.width (strolled model.screen model.walked - px)
-
-                above =
-                    ground model.screen - Walker.height / 2 - py
-
-                span =
-                    sqrt (aside * aside + above * above)
-
-                near =
-                    max 0 (1 - span / walkerSense)
-
-                lean =
-                    negate (clamp -1 1 (aside / walkerFocus))
-
-                panic =
-                    walkerPanic
-                        * max 0 ((walkerPanicRange / max walkerPanicFloor span) ^ 2 - 1)
-            in
-            min (walkerSpeed * walkerLimit)
-                (max 0
-                    (walkerSpeed
-                        * (1 - near * walkerBrake * max 0 (negate lean) + near * walkerRush * max 0 lean)
-                    )
-                    + walkerSpeed
-                    * panic
-                    * max 0 lean
-                )
-
-
-strolled : Screen -> Float -> Float
-strolled screen walked =
-    wrap screen.width (screen.width - walked)
-
-
-seam : Float -> Float -> List Float
-seam span here =
-    if here < Walker.width then
-        [ here + span ]
-
-    else if here > span - Walker.width then
-        [ here - span ]
-
-    else
-        []
 
 
 

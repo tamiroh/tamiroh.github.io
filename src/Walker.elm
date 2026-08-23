@@ -1,12 +1,199 @@
-module Walker exposing (height, view, width)
+module Walker exposing (Walker, start, step, view)
 
-import Geometry exposing (Position)
+import Geometry exposing (Position, Screen, wrap, wrapDelta)
+import Millis exposing (Millis)
 import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
 
 
 
 -- WALKER
+
+
+type Walker
+    = Walker
+        { walked : Float
+        , pace : Float
+        }
+
+
+start : Walker
+start =
+    Walker { walked = 0, pace = speed }
+
+
+step : Millis -> Screen -> Float -> Maybe Position -> Walker -> Walker
+step delta screen level pointer (Walker walker) =
+    let
+        current =
+            pace screen level walker.walked pointer
+    in
+    Walker
+        { walked = walker.walked + current * delta / 1000
+        , pace = current
+        }
+
+
+view : String -> String -> Float -> Screen -> Float -> Walker -> List (Svg msg)
+view ink paper stroke screen level (Walker walker) =
+    let
+        here =
+            strolled screen walker.walked
+
+        hurry =
+            max 0 (walker.pace / speed - 1)
+
+        swing =
+            sin (walker.walked / stride * pi) * sway * min flail (1 + hurry * 0.4)
+
+        tilt =
+            negate (min pitch (hurry * 3))
+    in
+    List.map
+        (\x ->
+            figure ink
+                paper
+                stroke
+                { x = x
+                , ground = level - lift
+                , swing = swing
+                , tilt = tilt
+                , standing = walker.pace <= 0
+                }
+        )
+        (here :: seam screen.width here)
+
+
+
+-- PACE
+
+
+pace : Screen -> Float -> Float -> Maybe Position -> Float
+pace screen level walked pointer =
+    case pointer of
+        Nothing ->
+            speed
+
+        Just ( px, py ) ->
+            let
+                aside =
+                    wrapDelta screen.width (strolled screen walked - px)
+
+                above =
+                    level - height / 2 - py
+
+                span =
+                    sqrt (aside * aside + above * above)
+
+                near =
+                    max 0 (1 - span / sense)
+
+                lean =
+                    negate (clamp -1 1 (aside / focus))
+
+                dread =
+                    panic * max 0 ((panicRange / max panicFloor span) ^ 2 - 1)
+            in
+            min (speed * limit)
+                (max 0
+                    (speed
+                        * (1 - near * brake * max 0 (negate lean) + near * rush * max 0 lean)
+                    )
+                    + speed
+                    * dread
+                    * max 0 lean
+                )
+
+
+strolled : Screen -> Float -> Float
+strolled screen walked =
+    wrap screen.width (screen.width - walked)
+
+
+seam : Float -> Float -> List Float
+seam span here =
+    if here < width then
+        [ here + span ]
+
+    else if here > span - width then
+        [ here - span ]
+
+    else
+        []
+
+
+speed : Float
+speed =
+    26
+
+
+stride : Float
+stride =
+    26
+
+
+sway : Float
+sway =
+    10
+
+
+sense : Float
+sense =
+    220
+
+
+rush : Float
+rush =
+    4
+
+
+flail : Float
+flail =
+    2.8
+
+
+pitch : Float
+pitch =
+    16
+
+
+lift : Float
+lift =
+    3
+
+
+panic : Float
+panic =
+    3
+
+
+panicRange : Float
+panicRange =
+    60
+
+
+panicFloor : Float
+panicFloor =
+    12
+
+
+limit : Float
+limit =
+    30
+
+
+focus : Float
+focus =
+    40
+
+
+brake : Float
+brake =
+    1.8
+
+
+
+-- FIGURE
 
 
 type alias Pose =
@@ -33,8 +220,8 @@ width =
     400 * scale
 
 
-view : String -> String -> Float -> Pose -> Svg msg
-view ink paper stroke pose =
+figure : String -> String -> Float -> Pose -> Svg msg
+figure ink paper stroke pose =
     Svg.g
         [ SvgAttr.transform
             (String.concat

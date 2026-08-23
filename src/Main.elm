@@ -382,6 +382,10 @@ view model =
                 Dark ->
                     { ink = "#111111" }
 
+        cursorBulge : Float
+        cursorBulge =
+            1.2
+
         pageStyle : Html msg
         pageStyle =
             Html.node "style"
@@ -391,7 +395,10 @@ view model =
                         [ "html,body{margin:0;overflow:hidden;overscroll-behavior:none"
                         , ";user-select:none;-webkit-user-select:none"
                         , ";cursor:"
-                        , Cursor.css (look model.theme) Cursor.Empty
+                        , Cursor.css 1 (look model.theme) Cursor.Empty
+                        , "}"
+                        , "html:active,body:active{cursor:"
+                        , Cursor.css cursorBulge (look model.theme) Cursor.Empty
                         , "}"
                         ]
                     )

@@ -169,7 +169,7 @@ cellView scene pointer cell =
                 )
             , SvgAttr.stroke scene.look.ink
             , SvgAttr.rx (String.fromFloat cellRadius)
-            , SvgAttr.cursor (Cursor.css scene.look Cursor.Clickable)
+            , SvgAttr.cursor (Cursor.css 1 scene.look Cursor.Clickable)
             , Svg.Events.onClick cell
             ]
             []

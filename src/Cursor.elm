@@ -10,8 +10,8 @@ type alias Look =
     }
 
 
-radius : Float
-radius =
+baseRadius : Float
+baseRadius =
     11
 
 
@@ -20,11 +20,28 @@ type Over
     | Clickable
 
 
-css : Look -> Over -> String
-css look over =
+css : Float -> Look -> Over -> String
+css scale look over =
     let
+        radius =
+            baseRadius * scale
+
         edge =
             radius + look.stroke
+
+        wink : String -> Position -> String
+        wink colour ( x, y ) =
+            String.concat
+                [ "%3Ccircle cx='"
+                , num x
+                , "' cy='"
+                , num y
+                , "' r='"
+                , num (radius * 0.13)
+                , "' fill='"
+                , webColour colour
+                , "' stroke='none'/%3E"
+                ]
 
         skin =
             case over of
@@ -83,21 +100,6 @@ css look over =
         , " "
         , num edge
         , ", auto"
-        ]
-
-
-wink : String -> Position -> String
-wink colour ( x, y ) =
-    String.concat
-        [ "%3Ccircle cx='"
-        , num x
-        , "' cy='"
-        , num y
-        , "' r='"
-        , num (radius * 0.13)
-        , "' fill='"
-        , webColour colour
-        , "' stroke='none'/%3E"
         ]
 
 

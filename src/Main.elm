@@ -126,21 +126,6 @@ type Msg
     | EyeOpened (Maybe Eye)
 
 
-subscriptions : Model -> Sub Msg
-subscriptions _ =
-    Sub.batch
-        [ Time.every 1000 (\_ -> SecondPassed)
-        , Browser.Events.onAnimationFrameDelta AnimationFramePassed
-        , Browser.Events.onResize WindowResized
-        , Browser.Events.onMouseMove pointerDecoder
-        ]
-
-
-pointerDecoder : Json.Decode.Decoder Msg
-pointerDecoder =
-    Json.Decode.map PointerMoved positionDecoder
-
-
 blockLimit : Int
 blockLimit =
     12
@@ -162,13 +147,6 @@ blockGenerator point =
 pointerFade : Millis
 pointerFade =
     350
-
-
-positionDecoder : Json.Decode.Decoder Position
-positionDecoder =
-    Json.Decode.map2 Tuple.pair
-        (Json.Decode.field "clientX" Json.Decode.float)
-        (Json.Decode.field "clientY" Json.Decode.float)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -293,6 +271,32 @@ startGenerator cell =
 startShock : Cell -> Model -> Model
 startShock cell model =
     { model | shock = Just { origin = cell, elapsed = 0 } }
+
+
+
+-- SUBSCRIPTIONS
+
+
+subscriptions : Model -> Sub Msg
+subscriptions _ =
+    Sub.batch
+        [ Time.every 1000 (\_ -> SecondPassed)
+        , Browser.Events.onAnimationFrameDelta AnimationFramePassed
+        , Browser.Events.onResize WindowResized
+        , Browser.Events.onMouseMove pointerDecoder
+        ]
+
+
+pointerDecoder : Json.Decode.Decoder Msg
+pointerDecoder =
+    Json.Decode.map PointerMoved positionDecoder
+
+
+positionDecoder : Json.Decode.Decoder Position
+positionDecoder =
+    Json.Decode.map2 Tuple.pair
+        (Json.Decode.field "clientX" Json.Decode.float)
+        (Json.Decode.field "clientY" Json.Decode.float)
 
 
 

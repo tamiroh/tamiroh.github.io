@@ -367,16 +367,17 @@ boardLayer model =
                 "auto"
             )
         ]
-        [ Board.view
-            { ink = ink model.theme
-            , paper = paper model.theme
-            , stroke = lineWidth
-            , screen = model.screen
-            , pointer = model.pointer
-            , drift = Motion.offset Grid.count model.shock model.elapsed
-            , content = contentAt model
-            , click = CellClicked
-            }
+        [ Svg.map CellClicked
+            (Board.view
+                { ink = ink model.theme
+                , paper = paper model.theme
+                , stroke = lineWidth
+                , screen = model.screen
+                , pointer = model.pointer
+                , drift = Motion.offset Grid.count model.shock model.elapsed
+                , content = contentAt model
+                }
+            )
         ]
 
 

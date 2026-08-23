@@ -1,4 +1,4 @@
-module Board exposing (Content(..), Mark(..), Shade(..), size, view)
+module Board exposing (Content(..), Mark(..), Scene, Shade(..), size, view)
 
 import Cursor
 import Geometry exposing (Position, Screen, Vector)
@@ -13,7 +13,7 @@ import Svg.Events
 -- BOARD
 
 
-type alias Look msg =
+type alias Scene =
     { ink : String
     , paper : String
     , stroke : Float
@@ -21,7 +21,6 @@ type alias Look msg =
     , pointer : Maybe Position
     , drift : Cell -> Vector
     , content : Cell -> Content
-    , click : Cell -> msg
     }
 
 
@@ -98,19 +97,19 @@ about midX midY factor =
 -- VIEW
 
 
-view : Look msg -> Svg msg
-view look =
+view : Scene -> Svg Cell
+view scene =
     Svg.svg
         [ SvgAttr.width (String.fromFloat size)
         , SvgAttr.height (String.fromFloat size)
         , SvgAttr.viewBox ("0 0 " ++ String.fromFloat size ++ " " ++ String.fromFloat size)
         , SvgAttr.style "overflow: visible"
         ]
-        (List.concatMap (cellView look (pointerOnBoard look.screen look.pointer)) Grid.cells)
+        (List.concatMap (cellView scene (pointerOnBoard scene.screen scene.pointer)) Grid.cells)
 
 
-cellView : Look msg -> Maybe Position -> Cell -> List (Svg msg)
-cellView look pointer cell =
+cellView : Scene -> Maybe Position -> Cell -> List (Svg Cell)
+cellView scene pointer cell =
     let
         ( column, row ) =
             cell
@@ -122,10 +121,10 @@ cellView look pointer cell =
             hovered.shift
 
         ( driftX, driftY ) =
-            look.drift cell
+            scene.drift cell
 
         seen =
-            look.content cell
+            scene.content cell
 
         opened =
             case seen of
@@ -146,7 +145,7 @@ cellView look pointer cell =
     in
     [ Svg.g
         [ SvgAttr.transform (about (x + cellSize / 2) (y + cellSize / 2) swelled)
-        , SvgAttr.strokeWidth (String.fromFloat (look.stroke / swelled))
+        , SvgAttr.strokeWidth (String.fromFloat (scene.stroke / swelled))
         ]
         (Svg.rect
             [ SvgAttr.x (String.fromFloat x)
@@ -155,24 +154,24 @@ cellView look pointer cell =
             , SvgAttr.height (String.fromFloat cellSize)
             , SvgAttr.fill
                 (if opened then
-                    look.ink
+                    scene.ink
 
                  else
-                    look.paper
+                    scene.paper
                 )
-            , SvgAttr.stroke look.ink
+            , SvgAttr.stroke scene.ink
             , SvgAttr.rx (String.fromFloat cellRadius)
-            , SvgAttr.cursor (Cursor.css look.ink look.paper look.stroke True)
-            , Svg.Events.onClick (look.click cell)
+            , SvgAttr.cursor (Cursor.css scene.ink scene.paper scene.stroke True)
+            , Svg.Events.onClick cell
             ]
             []
-            :: cellMarks look seen x y
+            :: cellMarks scene seen x y
         )
     ]
 
 
-cellMarks : Look msg -> Content -> Float -> Float -> List (Svg msg)
-cellMarks look seen x y =
+cellMarks : Scene -> Content -> Float -> Float -> List (Svg Cell)
+cellMarks scene seen x y =
     case seen of
         Bare ->
             []
@@ -181,17 +180,17 @@ cellMarks look seen x y =
             []
 
         Open (Pips count) ->
-            List.map (pip look x y) (pipCells count)
+            List.map (pip scene x y) (pipCells count)
 
         Open Mine ->
-            Skull.view look.ink look.paper cellSize x y
+            Skull.view scene.ink scene.paper cellSize x y
 
         Piece shade ->
-            [ disc look shade x y ]
+            [ disc scene shade x y ]
 
 
-disc : Look msg -> Shade -> Float -> Float -> Svg msg
-disc look shade x y =
+disc : Scene -> Shade -> Float -> Float -> Svg msg
+disc scene shade x y =
     Svg.circle
         [ SvgAttr.cx (String.fromFloat (x + cellSize / 2))
         , SvgAttr.cy (String.fromFloat (y + cellSize / 2))
@@ -199,23 +198,23 @@ disc look shade x y =
         , SvgAttr.fill
             (case shade of
                 Dark ->
-                    look.ink
+                    scene.ink
 
                 Light ->
-                    look.paper
+                    scene.paper
             )
-        , SvgAttr.stroke look.ink
+        , SvgAttr.stroke scene.ink
         ]
         []
 
 
-pip : Look msg -> Float -> Float -> ( Int, Int ) -> Svg msg
-pip look x y ( column, row ) =
+pip : Scene -> Float -> Float -> ( Int, Int ) -> Svg msg
+pip scene x y ( column, row ) =
     Svg.circle
         [ SvgAttr.cx (String.fromFloat (x + pipOffset column))
         , SvgAttr.cy (String.fromFloat (y + pipOffset row))
         , SvgAttr.r (String.fromFloat pipRadius)
-        , SvgAttr.fill look.paper
+        , SvgAttr.fill scene.paper
         ]
         []
 

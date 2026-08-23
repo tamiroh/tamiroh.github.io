@@ -30,6 +30,15 @@ width =
 
 view : Look -> Pose -> Svg msg
 view look pose =
+    let
+        spot : Position -> String
+        spot ( x, y ) =
+            num x ++ "," ++ num y
+
+        outline : String
+        outline =
+            String.join " " (List.map spot shape)
+    in
     Svg.polygon
         [ SvgAttr.points outline
         , SvgAttr.fill look.paper
@@ -51,16 +60,6 @@ view look pose =
             )
         ]
         []
-
-
-outline : String
-outline =
-    String.join " " (List.map spot shape)
-
-
-spot : Position -> String
-spot ( x, y ) =
-    num x ++ "," ++ num y
 
 
 num : Float -> String

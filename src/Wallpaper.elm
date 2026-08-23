@@ -26,7 +26,20 @@ blank =
 
 render : Screen -> Pattern -> Rendered
 render screen chosen =
-    Rendered (draw (columns screen) (rows screen) chosen)
+    let
+        charWidth : Float
+        charWidth =
+            fontSize * 0.45
+
+        columns : Int
+        columns =
+            ceiling (screen.width / charWidth) + 1
+
+        rows : Int
+        rows =
+            ceiling (screen.height / (fontSize * lineHeight)) + 1
+    in
+    Rendered (draw columns rows chosen)
 
 
 view : Look -> Rendered -> Html msg
@@ -58,21 +71,6 @@ fontSize =
 lineHeight : Float
 lineHeight =
     1.2
-
-
-charWidth : Float
-charWidth =
-    fontSize * 0.45
-
-
-columns : Screen -> Int
-columns screen =
-    ceiling (screen.width / charWidth) + 1
-
-
-rows : Screen -> Int
-rows screen =
-    ceiling (screen.height / (fontSize * lineHeight)) + 1
 
 
 

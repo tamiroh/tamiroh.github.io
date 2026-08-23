@@ -27,6 +27,7 @@ import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
 import Task
 import Time
+import Torus exposing (Torus)
 import Walker exposing (Walker)
 import Wallpaper exposing (Pattern, Rendered)
 
@@ -221,7 +222,7 @@ update msg model =
                 , shock = Motion.advance (Motion.shockLifetime Grid.count) delta model.shock
                 , cord = Motion.advance Motion.pullDuration delta model.cord
                 , boids = Boid.step delta (field model) model.pointer model.boids
-                , walker = Walker.step delta model.screen (ground model.screen) model.pointer model.walker
+                , walker = Walker.step delta (Torus.around model.screen) (ground model.screen) model.pointer model.walker
                 , eyes = List.filterMap (Eye.alive model.elapsed model.pointer) model.eyes
               }
             , Cmd.none
@@ -457,18 +458,18 @@ boidLayer theme screen boids =
         , Attr.style "inset" "0"
         , Attr.style "pointer-events" "none"
         ]
-        (List.concatMap (boidView theme screen) boids)
+        (List.concatMap (boidView theme (Torus.around screen)) boids)
 
 
-boidView : Theme -> Screen -> Boid -> List (Svg msg)
-boidView theme screen boid =
+boidView : Theme -> Torus -> Boid -> List (Svg msg)
+boidView theme torus boid =
     let
         heading =
             atan2 boid.vy boid.vx * 180 / pi
     in
     List.map
         (\( x, y ) -> Bird.view (look theme) { x = x, y = y, heading = heading })
-        (Boid.places screen boid)
+        (Boid.places torus boid)
 
 
 groundLayer : Theme -> Screen -> Walker -> Html msg
@@ -501,7 +502,7 @@ groundLayer theme screen walker =
                 , SvgAttr.strokeWidth (String.fromFloat lineWidth)
                 ]
                 []
-            :: Walker.view (look theme) screen level walker
+            :: Walker.view (look theme) (Torus.around screen) level walker
         )
 
 

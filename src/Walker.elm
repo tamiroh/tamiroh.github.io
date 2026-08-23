@@ -2,7 +2,6 @@ module Walker exposing (Look, Walker, new, step, view)
 
 import Geometry exposing (Position)
 import Millis exposing (Millis)
-import Screen exposing (Screen)
 import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
 import Torus exposing (Torus)
@@ -31,11 +30,11 @@ new =
     Walker { walked = 0, pace = speed }
 
 
-step : Millis -> Screen -> Float -> Maybe Position -> Walker -> Walker
-step delta screen level pointer (Walker walker) =
+step : Millis -> Torus -> Float -> Maybe Position -> Walker -> Walker
+step delta torus level pointer (Walker walker) =
     let
         current =
-            pace (Torus.around screen) level walker.walked pointer
+            pace torus level walker.walked pointer
     in
     Walker
         { walked = walker.walked + current * delta / 1000
@@ -43,12 +42,9 @@ step delta screen level pointer (Walker walker) =
         }
 
 
-view : Look -> Screen -> Float -> Walker -> List (Svg msg)
-view look screen level (Walker walker) =
+view : Look -> Torus -> Float -> Walker -> List (Svg msg)
+view look torus level (Walker walker) =
     let
-        torus =
-            Torus.around screen
-
         here =
             strolled torus walker.walked
 

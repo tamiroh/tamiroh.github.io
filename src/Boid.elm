@@ -4,7 +4,6 @@ import Field exposing (Field)
 import Geometry exposing (Position, Vector)
 import Millis exposing (Millis)
 import Random
-import Screen exposing (Screen)
 import Torus exposing (Torus)
 
 
@@ -341,6 +340,6 @@ confine torus field point =
     Torus.wrap torus (Field.expel radius field point)
 
 
-places : Screen -> Boid -> List Position
-places screen boid =
-    Torus.copies radius (Torus.around screen) ( boid.x, boid.y )
+places : Torus -> Boid -> List Position
+places torus boid =
+    Torus.copies radius torus ( boid.x, boid.y )

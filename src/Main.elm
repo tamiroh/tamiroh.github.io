@@ -151,6 +151,15 @@ pointerFade =
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
+    let
+        boardBlock : Screen -> Obstacle
+        boardBlock screen =
+            Field.square ( screen.width / 2, screen.height / 2 ) Board.size
+
+        field : Screen -> Field
+        field screen =
+            Field.around screen (boardBlock screen :: model.blocks)
+    in
     case msg of
         -- PLAYER
         CellClicked cell ->
@@ -198,7 +207,7 @@ update msg model =
                 | elapsed = model.elapsed + delta
                 , shock = Board.tickShock delta model.shock
                 , cord = Cord.tickPull delta model.cord
-                , boids = Boid.step delta (field model) model.pointer model.boids
+                , boids = Boid.step delta (field model.screen) model.pointer model.boids
                 , walker = Walker.step delta (Torus.around model.screen) (ground model.screen) model.pointer model.walker
                 , eyes = List.filterMap (Eye.alive model.elapsed model.pointer) model.eyes
               }
@@ -209,7 +218,7 @@ update msg model =
             ( model
             , Cmd.batch
                 [ Random.generate PatternChosen Wallpaper.generator
-                , Random.generate EyeOpened (Eye.generator (field model) model.elapsed)
+                , Random.generate EyeOpened (Eye.generator (field model.screen) model.elapsed)
                 ]
             )
 
@@ -236,7 +245,7 @@ update msg model =
             in
             ( { model | screen = screen }
             , Cmd.batch
-                [ Random.generate BoidsPlaced (Boid.generator (field { model | screen = screen }))
+                [ Random.generate BoidsPlaced (Boid.generator (field screen))
                 , Random.generate PatternChosen Wallpaper.generator
                 ]
             )
@@ -312,6 +321,14 @@ view model =
         screen =
             model.screen
 
+        lineWidth : Float
+        lineWidth =
+            2
+
+        look : { ink : String, paper : String, stroke : Float }
+        look =
+            { ink = ink theme, paper = paper theme, stroke = lineWidth }
+
         pageStyle : Html msg
         pageStyle =
             Html.node "style"
@@ -321,7 +338,7 @@ view model =
                         [ "html,body{margin:0;overflow:hidden;overscroll-behavior:none"
                         , ";user-select:none;-webkit-user-select:none"
                         , ";cursor:"
-                        , Cursor.css (look theme) Cursor.Empty
+                        , Cursor.css look Cursor.Empty
                         , "}"
                         ]
                     )
@@ -346,7 +363,7 @@ view model =
                 , Attr.style "inset" "0"
                 , Attr.style "pointer-events" "none"
                 ]
-                (List.filterMap (Eye.view (look theme) model.elapsed) model.eyes)
+                (List.filterMap (Eye.view look model.elapsed) model.eyes)
 
         blockLayer : Html msg
         blockLayer =
@@ -388,7 +405,7 @@ view model =
                             atan2 boid.vy boid.vx * 180 / pi
                     in
                     List.map
-                        (\( x, y ) -> Bird.view (look theme) { x = x, y = y, heading = heading })
+                        (\( x, y ) -> Bird.view look { x = x, y = y, heading = heading })
                         (Boid.places torus boid)
             in
             Svg.svg
@@ -430,7 +447,7 @@ view model =
                         , SvgAttr.strokeWidth (String.fromFloat lineWidth)
                         ]
                         []
-                    :: Walker.view (look theme) (Torus.around screen) level model.walker
+                    :: Walker.view look (Torus.around screen) level model.walker
                 )
 
         boardLayer : Html Msg
@@ -478,7 +495,7 @@ view model =
                 ]
                 [ Svg.map CellClicked
                     (Board.view
-                        { look = look theme
+                        { look = look
                         , screen = screen
                         , pointer = model.pointer
                         , shock = model.shock
@@ -508,27 +525,8 @@ view model =
             , Attr.style "pointer-events" "none"
             ]
             [ boardLayer ]
-        , Cord.view (look theme) CordPulled model.cord
+        , Cord.view look CordPulled model.cord
         ]
-
-
-
--- LAYOUT
-
-
-lineWidth : Float
-lineWidth =
-    2
-
-
-field : Model -> Field
-field model =
-    Field.around model.screen (boardBlock model.screen :: model.blocks)
-
-
-boardBlock : Screen -> Obstacle
-boardBlock screen =
-    Field.square ( screen.width / 2, screen.height / 2 ) Board.size
 
 
 
@@ -580,11 +578,6 @@ toggle theme =
 
         Dark ->
             Light
-
-
-look : Theme -> { ink : String, paper : String, stroke : Float }
-look theme =
-    { ink = ink theme, paper = paper theme, stroke = lineWidth }
 
 
 ink : Theme -> String

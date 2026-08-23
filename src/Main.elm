@@ -327,20 +327,6 @@ positionDecoder =
 view : Model -> Html Msg
 view model =
     let
-        theme =
-            model.theme
-
-        screen =
-            model.screen
-
-        lineWidth : Float
-        lineWidth =
-            2
-
-        look : { ink : String, paper : String, stroke : Float }
-        look =
-            { ink = ink theme, paper = paper theme, stroke = lineWidth }
-
         pageStyle : Html msg
         pageStyle =
             Html.node "style"
@@ -350,170 +336,9 @@ view model =
                         [ "html,body{margin:0;overflow:hidden;overscroll-behavior:none"
                         , ";user-select:none;-webkit-user-select:none"
                         , ";cursor:"
-                        , Cursor.css look Cursor.Empty
+                        , Cursor.css (look model.theme) Cursor.Empty
                         , "}"
                         ]
-                    )
-                ]
-
-        backgroundLayer : Html Msg
-        backgroundLayer =
-            Html.div
-                [ Attr.style "position" "fixed"
-                , Attr.style "inset" "0"
-                , Attr.style "background-color" (paper theme)
-                , Html.Events.on "click" (Json.Decode.map FieldClicked positionDecoder)
-                ]
-                []
-
-        eyeLayer : Html msg
-        eyeLayer =
-            Svg.svg
-                [ SvgAttr.width (String.fromFloat screen.width)
-                , SvgAttr.height (String.fromFloat screen.height)
-                , Attr.style "position" "fixed"
-                , Attr.style "inset" "0"
-                , Attr.style "pointer-events" "none"
-                ]
-                (List.filterMap (Eye.view look model.elapsed) model.eyes)
-
-        blockLayer : Html msg
-        blockLayer =
-            let
-                corner : Position -> String
-                corner ( x, y ) =
-                    String.fromFloat x ++ "," ++ String.fromFloat y
-
-                blockView : Obstacle -> Svg msg
-                blockView block =
-                    Svg.polygon
-                        [ SvgAttr.points (String.join " " (List.map corner (Field.outline block)))
-                        , SvgAttr.fill (paper theme)
-                        , SvgAttr.stroke (ink theme)
-                        , SvgAttr.strokeWidth (String.fromFloat lineWidth)
-                        , SvgAttr.strokeLinejoin "round"
-                        ]
-                        []
-            in
-            Svg.svg
-                [ SvgAttr.width (String.fromFloat screen.width)
-                , SvgAttr.height (String.fromFloat screen.height)
-                , Attr.style "position" "fixed"
-                , Attr.style "inset" "0"
-                , Attr.style "pointer-events" "none"
-                ]
-                (List.map blockView model.blocks)
-
-        boidLayer : Html msg
-        boidLayer =
-            let
-                torus =
-                    Torus.around screen
-
-                boidView : Boid -> List (Svg msg)
-                boidView boid =
-                    let
-                        heading =
-                            atan2 boid.vy boid.vx * 180 / pi
-                    in
-                    List.map
-                        (\( x, y ) -> Bird.view look { x = x, y = y, heading = heading })
-                        (Boid.places torus boid)
-            in
-            Svg.svg
-                [ SvgAttr.width (String.fromFloat screen.width)
-                , SvgAttr.height (String.fromFloat screen.height)
-                , Attr.style "position" "fixed"
-                , Attr.style "inset" "0"
-                , Attr.style "pointer-events" "none"
-                ]
-                (List.concatMap boidView model.boids)
-
-        groundLayer : Html msg
-        groundLayer =
-            let
-                level =
-                    ground screen
-            in
-            Svg.svg
-                [ SvgAttr.width (String.fromFloat screen.width)
-                , SvgAttr.height (String.fromFloat screen.height)
-                , Attr.style "position" "fixed"
-                , Attr.style "inset" "0"
-                , Attr.style "pointer-events" "none"
-                ]
-                (Svg.rect
-                    [ SvgAttr.x "0"
-                    , SvgAttr.y (String.fromFloat level)
-                    , SvgAttr.width (String.fromFloat screen.width)
-                    , SvgAttr.height (String.fromFloat groundDepth)
-                    , SvgAttr.fill (paper theme)
-                    ]
-                    []
-                    :: Svg.line
-                        [ SvgAttr.x1 "0"
-                        , SvgAttr.y1 (String.fromFloat level)
-                        , SvgAttr.x2 (String.fromFloat screen.width)
-                        , SvgAttr.y2 (String.fromFloat level)
-                        , SvgAttr.stroke (ink theme)
-                        , SvgAttr.strokeWidth (String.fromFloat lineWidth)
-                        ]
-                        []
-                    :: Walker.view look (Torus.around screen) level model.walker
-                )
-
-        boardLayer : Html Msg
-        boardLayer =
-            let
-                contentAt : Cell -> Board.Content
-                contentAt cell =
-                    case model.play of
-                        Fresh ->
-                            Board.Bare
-
-                        Mines game ->
-                            case Minesweeper.faceOf cell game of
-                                Minesweeper.Hidden ->
-                                    Board.Bare
-
-                                Minesweeper.Blank ->
-                                    Board.Open Board.Blank
-
-                                Minesweeper.Count count ->
-                                    Board.Open (Board.Pips count)
-
-                                Minesweeper.Mine ->
-                                    Board.Open Board.Mine
-
-                        Discs othello ->
-                            case Othello.discAt cell othello of
-                                Nothing ->
-                                    Board.Bare
-
-                                Just Othello.Black ->
-                                    Board.Piece Board.Dark
-
-                                Just Othello.White ->
-                                    Board.Piece Board.Light
-            in
-            Html.div
-                [ Attr.style "pointer-events"
-                    (if over model.play then
-                        "none"
-
-                     else
-                        "auto"
-                    )
-                ]
-                [ Svg.map CellClicked
-                    (Board.view
-                        { look = look
-                        , screen = screen
-                        , pointer = model.pointer
-                        , shock = model.shock
-                        , elapsed = model.elapsed
-                        , content = contentAt
-                        }
                     )
                 ]
     in
@@ -522,12 +347,12 @@ view model =
         , Html.Events.on "touchcancel" (Json.Decode.succeed TouchEnded)
         ]
         [ pageStyle
-        , backgroundLayer
-        , Wallpaper.view (wallpaperLook theme) model.wallpaper
-        , eyeLayer
-        , blockLayer
-        , boidLayer
-        , groundLayer
+        , backgroundLayer model.theme
+        , Wallpaper.view (wallpaperLook model.theme) model.wallpaper
+        , eyeLayer model.theme model.screen model.elapsed model.eyes
+        , blockLayer model.theme model.screen model.blocks
+        , boidLayer model.theme model.screen model.boids
+        , groundLayer model.theme model.screen model.walker
         , Html.div
             [ Attr.style "position" "fixed"
             , Attr.style "inset" "0"
@@ -536,8 +361,175 @@ view model =
             , Attr.style "align-items" "center"
             , Attr.style "pointer-events" "none"
             ]
-            [ boardLayer ]
-        , Cord.view look CordPulled model.cord
+            [ boardLayer model ]
+        , Cord.view (look model.theme) CordPulled model.cord
+        ]
+
+
+backgroundLayer : Theme -> Html Msg
+backgroundLayer theme =
+    Html.div
+        [ Attr.style "position" "fixed"
+        , Attr.style "inset" "0"
+        , Attr.style "background-color" (paper theme)
+        , Html.Events.on "click" (Json.Decode.map FieldClicked positionDecoder)
+        ]
+        []
+
+
+eyeLayer : Theme -> Screen -> Millis -> List Eye -> Html msg
+eyeLayer theme screen now eyes =
+    Svg.svg
+        [ SvgAttr.width (String.fromFloat screen.width)
+        , SvgAttr.height (String.fromFloat screen.height)
+        , Attr.style "position" "fixed"
+        , Attr.style "inset" "0"
+        , Attr.style "pointer-events" "none"
+        ]
+        (List.filterMap (Eye.view (look theme) now) eyes)
+
+
+blockLayer : Theme -> Screen -> List Obstacle -> Html msg
+blockLayer theme screen blocks =
+    let
+        corner : Position -> String
+        corner ( x, y ) =
+            String.fromFloat x ++ "," ++ String.fromFloat y
+
+        blockView : Obstacle -> Svg msg
+        blockView block =
+            Svg.polygon
+                [ SvgAttr.points (String.join " " (List.map corner (Field.outline block)))
+                , SvgAttr.fill (paper theme)
+                , SvgAttr.stroke (ink theme)
+                , SvgAttr.strokeWidth (String.fromFloat lineWidth)
+                , SvgAttr.strokeLinejoin "round"
+                ]
+                []
+    in
+    Svg.svg
+        [ SvgAttr.width (String.fromFloat screen.width)
+        , SvgAttr.height (String.fromFloat screen.height)
+        , Attr.style "position" "fixed"
+        , Attr.style "inset" "0"
+        , Attr.style "pointer-events" "none"
+        ]
+        (List.map blockView blocks)
+
+
+boidLayer : Theme -> Screen -> List Boid -> Html msg
+boidLayer theme screen boids =
+    let
+        torus =
+            Torus.around screen
+
+        boidView : Boid -> List (Svg msg)
+        boidView boid =
+            let
+                heading =
+                    atan2 boid.vy boid.vx * 180 / pi
+            in
+            List.map
+                (\( x, y ) -> Bird.view (look theme) { x = x, y = y, heading = heading })
+                (Boid.places torus boid)
+    in
+    Svg.svg
+        [ SvgAttr.width (String.fromFloat screen.width)
+        , SvgAttr.height (String.fromFloat screen.height)
+        , Attr.style "position" "fixed"
+        , Attr.style "inset" "0"
+        , Attr.style "pointer-events" "none"
+        ]
+        (List.concatMap boidView boids)
+
+
+groundLayer : Theme -> Screen -> Walker -> Html msg
+groundLayer theme screen walker =
+    let
+        level =
+            ground screen
+    in
+    Svg.svg
+        [ SvgAttr.width (String.fromFloat screen.width)
+        , SvgAttr.height (String.fromFloat screen.height)
+        , Attr.style "position" "fixed"
+        , Attr.style "inset" "0"
+        , Attr.style "pointer-events" "none"
+        ]
+        (Svg.rect
+            [ SvgAttr.x "0"
+            , SvgAttr.y (String.fromFloat level)
+            , SvgAttr.width (String.fromFloat screen.width)
+            , SvgAttr.height (String.fromFloat groundDepth)
+            , SvgAttr.fill (paper theme)
+            ]
+            []
+            :: Svg.line
+                [ SvgAttr.x1 "0"
+                , SvgAttr.y1 (String.fromFloat level)
+                , SvgAttr.x2 (String.fromFloat screen.width)
+                , SvgAttr.y2 (String.fromFloat level)
+                , SvgAttr.stroke (ink theme)
+                , SvgAttr.strokeWidth (String.fromFloat lineWidth)
+                ]
+                []
+            :: Walker.view (look theme) (Torus.around screen) level walker
+        )
+
+
+boardLayer : Model -> Html Msg
+boardLayer model =
+    let
+        contentAt : Cell -> Board.Content
+        contentAt cell =
+            case model.play of
+                Fresh ->
+                    Board.Bare
+
+                Mines game ->
+                    case Minesweeper.faceOf cell game of
+                        Minesweeper.Hidden ->
+                            Board.Bare
+
+                        Minesweeper.Blank ->
+                            Board.Open Board.Blank
+
+                        Minesweeper.Count count ->
+                            Board.Open (Board.Pips count)
+
+                        Minesweeper.Mine ->
+                            Board.Open Board.Mine
+
+                Discs othello ->
+                    case Othello.discAt cell othello of
+                        Nothing ->
+                            Board.Bare
+
+                        Just Othello.Black ->
+                            Board.Piece Board.Dark
+
+                        Just Othello.White ->
+                            Board.Piece Board.Light
+    in
+    Html.div
+        [ Attr.style "pointer-events"
+            (if over model.play then
+                "none"
+
+             else
+                "auto"
+            )
+        ]
+        [ Svg.map CellClicked
+            (Board.view
+                { look = look model.theme
+                , screen = model.screen
+                , pointer = model.pointer
+                , shock = model.shock
+                , elapsed = model.elapsed
+                , content = contentAt
+                }
+            )
         ]
 
 
@@ -572,6 +564,16 @@ toggle theme =
 
         Dark ->
             Light
+
+
+lineWidth : Float
+lineWidth =
+    2
+
+
+look : Theme -> { ink : String, paper : String, stroke : Float }
+look theme =
+    { ink = ink theme, paper = paper theme, stroke = lineWidth }
 
 
 ink : Theme -> String

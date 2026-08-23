@@ -159,6 +159,18 @@ update msg model =
         field : Screen -> Field
         field screen =
             Field.around screen (boardBlock screen :: model.blocks)
+
+        thinkingDelay : Millis
+        thinkingDelay =
+            420
+
+        think : Othello.Board -> Cmd Msg
+        think othello =
+            if Othello.thinking othello then
+                Task.perform (\_ -> OthelloResponded) (Process.sleep thinkingDelay)
+
+            else
+                Cmd.none
     in
     case msg of
         -- PLAYER
@@ -527,24 +539,6 @@ view model =
             [ boardLayer ]
         , Cord.view look CordPulled model.cord
         ]
-
-
-
--- OTHELLO
-
-
-thinkingDelay : Millis
-thinkingDelay =
-    420
-
-
-think : Othello.Board -> Cmd Msg
-think othello =
-    if Othello.thinking othello then
-        Task.perform (\_ -> OthelloResponded) (Process.sleep thinkingDelay)
-
-    else
-        Cmd.none
 
 
 

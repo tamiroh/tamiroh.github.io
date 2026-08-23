@@ -1,4 +1,4 @@
-module Walker exposing (Walker, start, step, view)
+module Walker exposing (Look, Walker, start, step, view)
 
 import Geometry exposing (Position, Screen, wrap, wrapDelta)
 import Millis exposing (Millis)
@@ -8,6 +8,13 @@ import Svg.Attributes as SvgAttr
 
 
 -- WALKER
+
+
+type alias Look =
+    { ink : String
+    , paper : String
+    , stroke : Float
+    }
 
 
 type Walker
@@ -34,8 +41,8 @@ step delta screen level pointer (Walker walker) =
         }
 
 
-view : String -> String -> Float -> Screen -> Float -> Walker -> List (Svg msg)
-view ink paper stroke screen level (Walker walker) =
+view : Look -> Screen -> Float -> Walker -> List (Svg msg)
+view look screen level (Walker walker) =
     let
         here =
             strolled screen walker.walked
@@ -51,9 +58,7 @@ view ink paper stroke screen level (Walker walker) =
     in
     List.map
         (\x ->
-            figure ink
-                paper
-                stroke
+            figure look
                 { x = x
                 , ground = level - lift
                 , swing = swing
@@ -220,8 +225,8 @@ width =
     400 * scale
 
 
-figure : String -> String -> Float -> Pose -> Svg msg
-figure ink paper stroke pose =
+figure : Look -> Pose -> Svg msg
+figure look pose =
     Svg.g
         [ SvgAttr.transform
             (String.concat
@@ -237,12 +242,12 @@ figure ink paper stroke pose =
                 ]
             )
         , SvgAttr.fill "none"
-        , SvgAttr.stroke ink
-        , SvgAttr.strokeWidth (num (stroke / scale))
+        , SvgAttr.stroke look.ink
+        , SvgAttr.strokeWidth (num (look.stroke / scale))
         , SvgAttr.strokeLinecap "round"
         , SvgAttr.strokeLinejoin "round"
         ]
-        (Svg.path [ SvgAttr.d body, SvgAttr.fill paper ] []
+        (Svg.path [ SvgAttr.d body, SvgAttr.fill look.paper ] []
             :: eye -130
             :: eye -25
             :: legs pose

@@ -1,6 +1,13 @@
-module Cursor exposing (css)
+module Cursor exposing (Look, css)
 
 -- CURSOR
+
+
+type alias Look =
+    { ink : String
+    , paper : String
+    , stroke : Float
+    }
 
 
 radius : Float
@@ -8,25 +15,25 @@ radius =
     11
 
 
-css : String -> String -> Float -> Bool -> String
-css ink paper stroke active =
+css : Look -> Bool -> String
+css look active =
     let
         edge =
-            radius + stroke
+            radius + look.stroke
 
         skin =
             if active then
-                ink
+                look.ink
 
             else
-                paper
+                look.paper
 
         face =
             if active then
-                paper
+                look.paper
 
             else
-                ink
+                look.ink
     in
     String.concat
         [ "url(\"data:image/svg+xml,"
@@ -35,9 +42,9 @@ css ink paper stroke active =
         , "' height='"
         , num (edge * 2)
         , "'%3E%3Cg stroke='"
-        , webColour ink
+        , webColour look.ink
         , "' stroke-width='"
-        , num stroke
+        , num look.stroke
         , "' stroke-linecap='round'%3E%3Ccircle cx='"
         , num edge
         , "' cy='"

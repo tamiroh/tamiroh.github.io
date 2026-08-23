@@ -1,4 +1,4 @@
-module Skull exposing (view)
+module Skull exposing (Look, view)
 
 import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
@@ -8,8 +8,14 @@ import Svg.Attributes as SvgAttr
 -- SKULL
 
 
-view : String -> String -> Float -> Float -> Float -> List (Svg msg)
-view ink paper size x y =
+type alias Look =
+    { ink : String
+    , paper : String
+    }
+
+
+view : Look -> Float -> Float -> Float -> List (Svg msg)
+view look size x y =
     let
         midX =
             x + size / 2
@@ -21,7 +27,7 @@ view ink paper size x y =
         [ SvgAttr.cx (String.fromFloat midX)
         , SvgAttr.cy (String.fromFloat (midY - lift size))
         , SvgAttr.r (String.fromFloat (radius size))
-        , SvgAttr.fill paper
+        , SvgAttr.fill look.paper
         ]
         []
     , Svg.rect
@@ -30,35 +36,35 @@ view ink paper size x y =
         , SvgAttr.width (String.fromFloat (jawWidth size))
         , SvgAttr.height (String.fromFloat (jawHeight size))
         , SvgAttr.rx (String.fromFloat (jawHeight size / 3))
-        , SvgAttr.fill paper
+        , SvgAttr.fill look.paper
         ]
         []
-    , socket ink size (midX - eyeGap size) midY
-    , socket ink size (midX + eyeGap size) midY
-    , tooth ink size (midX - toothGap size) midY
-    , tooth ink size (midX + toothGap size) midY
+    , socket look size (midX - eyeGap size) midY
+    , socket look size (midX + eyeGap size) midY
+    , tooth look size (midX - toothGap size) midY
+    , tooth look size (midX + toothGap size) midY
     ]
 
 
-socket : String -> Float -> Float -> Float -> Svg msg
-socket ink size midX midY =
+socket : Look -> Float -> Float -> Float -> Svg msg
+socket look size midX midY =
     Svg.circle
         [ SvgAttr.cx (String.fromFloat midX)
         , SvgAttr.cy (String.fromFloat (midY - eyeLift size))
         , SvgAttr.r (String.fromFloat (eyeRadius size))
-        , SvgAttr.fill ink
+        , SvgAttr.fill look.ink
         ]
         []
 
 
-tooth : String -> Float -> Float -> Float -> Svg msg
-tooth ink size midX midY =
+tooth : Look -> Float -> Float -> Float -> Svg msg
+tooth look size midX midY =
     Svg.rect
         [ SvgAttr.x (String.fromFloat (midX - toothWidth size / 2))
         , SvgAttr.y (String.fromFloat (midY + toothTop size))
         , SvgAttr.width (String.fromFloat (toothWidth size))
         , SvgAttr.height (String.fromFloat (toothHeight size))
-        , SvgAttr.fill ink
+        , SvgAttr.fill look.ink
         ]
         []
 

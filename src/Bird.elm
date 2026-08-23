@@ -1,4 +1,4 @@
-module Bird exposing (view)
+module Bird exposing (Look, view)
 
 import Geometry exposing (Position)
 import Svg exposing (Svg)
@@ -7,6 +7,13 @@ import Svg.Attributes as SvgAttr
 
 
 -- BIRD
+
+
+type alias Look =
+    { ink : String
+    , paper : String
+    , stroke : Float
+    }
 
 
 type alias Pose =
@@ -21,13 +28,13 @@ width =
     14
 
 
-view : String -> String -> Float -> Pose -> Svg msg
-view ink paper stroke pose =
+view : Look -> Pose -> Svg msg
+view look pose =
     Svg.polygon
         [ SvgAttr.points outline
-        , SvgAttr.fill paper
-        , SvgAttr.stroke ink
-        , SvgAttr.strokeWidth (String.fromFloat (stroke / width))
+        , SvgAttr.fill look.paper
+        , SvgAttr.stroke look.ink
+        , SvgAttr.strokeWidth (String.fromFloat (look.stroke / width))
         , SvgAttr.strokeLinejoin "round"
         , SvgAttr.transform
             (String.concat

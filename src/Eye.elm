@@ -1,4 +1,4 @@
-module Eye exposing (Eye, alive, generator, view)
+module Eye exposing (Eye, Look, alive, generator, view)
 
 import Field exposing (Field)
 import Geometry exposing (Position)
@@ -10,6 +10,13 @@ import Svg.Attributes as SvgAttr
 
 
 -- EYE
+
+
+type alias Look =
+    { ink : String
+    , paper : String
+    , stroke : Float
+    }
 
 
 type alias Eye =
@@ -157,8 +164,8 @@ aperture now eye =
         * closing now eye
 
 
-view : String -> String -> Float -> Millis -> Eye -> Maybe (Svg msg)
-view ink paper stroke now eye =
+view : Look -> Millis -> Eye -> Maybe (Svg msg)
+view look now eye =
     let
         open =
             aperture now eye
@@ -178,14 +185,14 @@ view ink paper stroke now eye =
             (Svg.g
                 [ SvgAttr.transform
                     ("translate(" ++ String.fromFloat eye.x ++ "," ++ String.fromFloat eye.y ++ ")")
-                , SvgAttr.stroke ink
-                , SvgAttr.strokeWidth (String.fromFloat stroke)
+                , SvgAttr.stroke look.ink
+                , SvgAttr.strokeWidth (String.fromFloat look.stroke)
                 , SvgAttr.strokeLinejoin "round"
                 ]
-                [ Svg.path [ SvgAttr.d (lens half spread), SvgAttr.fill paper ] []
+                [ Svg.path [ SvgAttr.d (lens half spread), SvgAttr.fill look.paper ] []
                 , Svg.circle
                     [ SvgAttr.r (String.fromFloat (min (spread * 0.55) (half * 0.4)))
-                    , SvgAttr.fill ink
+                    , SvgAttr.fill look.ink
                     , SvgAttr.stroke "none"
                     ]
                     []

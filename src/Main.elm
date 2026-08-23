@@ -320,7 +320,7 @@ view model =
             , Attr.style "pointer-events" "none"
             ]
             [ boardLayer model ]
-        , Cord.view (ink model.theme) (paper model.theme) lineWidth CordPulled (Motion.pullOffset model.cord)
+        , Cord.view (look model.theme) CordPulled (Motion.pullOffset model.cord)
         ]
 
 
@@ -369,9 +369,7 @@ boardLayer model =
         ]
         [ Svg.map CellClicked
             (Board.view
-                { ink = ink model.theme
-                , paper = paper model.theme
-                , stroke = lineWidth
+                { look = look model.theme
                 , screen = model.screen
                 , pointer = model.pointer
                 , drift = Motion.offset Grid.count model.shock model.elapsed
@@ -390,7 +388,7 @@ pageStyle theme =
                 [ "html,body{margin:0;overflow:hidden;overscroll-behavior:none"
                 , ";user-select:none;-webkit-user-select:none"
                 , ";cursor:"
-                , Cursor.css (ink theme) (paper theme) lineWidth False
+                , Cursor.css (look theme) False
                 , "}"
                 ]
             )
@@ -446,7 +444,7 @@ eyeLayer theme screen now eyes =
         , Attr.style "inset" "0"
         , Attr.style "pointer-events" "none"
         ]
-        (List.filterMap (Eye.view (ink theme) (paper theme) lineWidth now) eyes)
+        (List.filterMap (Eye.view (look theme) now) eyes)
 
 
 boidLayer : Theme -> Screen -> List Boid -> Html msg
@@ -468,7 +466,7 @@ boidView theme screen boid =
             atan2 boid.vy boid.vx * 180 / pi
     in
     List.map
-        (\( x, y ) -> Bird.view (ink theme) (paper theme) lineWidth { x = x, y = y, heading = heading })
+        (\( x, y ) -> Bird.view (look theme) { x = x, y = y, heading = heading })
         (Boid.places screen boid)
 
 
@@ -502,7 +500,7 @@ groundLayer theme screen walker =
                 , SvgAttr.strokeWidth (String.fromFloat lineWidth)
                 ]
                 []
-            :: Walker.view (ink theme) (paper theme) lineWidth screen level walker
+            :: Walker.view (look theme) screen level walker
         )
 
 
@@ -579,6 +577,11 @@ toggle theme =
 
         Dark ->
             Light
+
+
+look : Theme -> { ink : String, paper : String, stroke : Float }
+look theme =
+    { ink = ink theme, paper = paper theme, stroke = lineWidth }
 
 
 ink : Theme -> String

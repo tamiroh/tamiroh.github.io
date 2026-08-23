@@ -1,4 +1,4 @@
-module Board exposing (Content(..), Mark(..), Scene, Shade(..), size, view)
+module Board exposing (Content(..), Look, Mark(..), Scene, Shade(..), size, view)
 
 import Cursor
 import Geometry exposing (Position, Screen, Vector)
@@ -13,10 +13,15 @@ import Svg.Events
 -- BOARD
 
 
-type alias Scene =
+type alias Look =
     { ink : String
     , paper : String
     , stroke : Float
+    }
+
+
+type alias Scene =
+    { look : Look
     , screen : Screen
     , pointer : Maybe Position
     , drift : Cell -> Vector
@@ -145,7 +150,7 @@ cellView scene pointer cell =
     in
     [ Svg.g
         [ SvgAttr.transform (about (x + cellSize / 2) (y + cellSize / 2) swelled)
-        , SvgAttr.strokeWidth (String.fromFloat (scene.stroke / swelled))
+        , SvgAttr.strokeWidth (String.fromFloat (scene.look.stroke / swelled))
         ]
         (Svg.rect
             [ SvgAttr.x (String.fromFloat x)
@@ -154,14 +159,14 @@ cellView scene pointer cell =
             , SvgAttr.height (String.fromFloat cellSize)
             , SvgAttr.fill
                 (if opened then
-                    scene.ink
+                    scene.look.ink
 
                  else
-                    scene.paper
+                    scene.look.paper
                 )
-            , SvgAttr.stroke scene.ink
+            , SvgAttr.stroke scene.look.ink
             , SvgAttr.rx (String.fromFloat cellRadius)
-            , SvgAttr.cursor (Cursor.css scene.ink scene.paper scene.stroke True)
+            , SvgAttr.cursor (Cursor.css scene.look True)
             , Svg.Events.onClick cell
             ]
             []
@@ -183,7 +188,7 @@ cellMarks scene seen x y =
             List.map (pip scene x y) (pipCells count)
 
         Open Mine ->
-            Skull.view scene.ink scene.paper cellSize x y
+            Skull.view { ink = scene.look.ink, paper = scene.look.paper } cellSize x y
 
         Piece shade ->
             [ disc scene shade x y ]
@@ -198,12 +203,12 @@ disc scene shade x y =
         , SvgAttr.fill
             (case shade of
                 Dark ->
-                    scene.ink
+                    scene.look.ink
 
                 Light ->
-                    scene.paper
+                    scene.look.paper
             )
-        , SvgAttr.stroke scene.ink
+        , SvgAttr.stroke scene.look.ink
         ]
         []
 
@@ -214,7 +219,7 @@ pip scene x y ( column, row ) =
         [ SvgAttr.cx (String.fromFloat (x + pipOffset column))
         , SvgAttr.cy (String.fromFloat (y + pipOffset row))
         , SvgAttr.r (String.fromFloat pipRadius)
-        , SvgAttr.fill scene.paper
+        , SvgAttr.fill scene.look.paper
         ]
         []
 

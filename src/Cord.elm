@@ -1,4 +1,4 @@
-module Cord exposing (view)
+module Cord exposing (Look, view)
 
 import Cursor
 import Html exposing (Html)
@@ -12,24 +12,31 @@ import Svg.Attributes as SvgAttr
 -- CORD
 
 
-view : String -> String -> Float -> msg -> Float -> Html msg
-view ink paper stroke pulled dy =
+type alias Look =
+    { ink : String
+    , paper : String
+    , stroke : Float
+    }
+
+
+view : Look -> msg -> Float -> Html msg
+view look pulled dy =
     Html.div
         [ Attr.style "position" "fixed"
         , Attr.style "top" "0"
         , Attr.style "right" (String.fromFloat inset ++ "px")
-        , Attr.style "cursor" (Cursor.css ink paper stroke True)
+        , Attr.style "cursor" (Cursor.css look True)
         , Attr.style "user-select" "none"
         , Html.Events.onClick pulled
         ]
-        [ hanging ink paper stroke dy ]
+        [ hanging look dy ]
 
 
-hanging : String -> String -> Float -> Float -> Svg msg
-hanging ink paper stroke dy =
+hanging : Look -> Float -> Svg msg
+hanging look dy =
     Svg.svg
         [ SvgAttr.width (String.fromFloat width)
-        , SvgAttr.height (String.fromFloat (length + gripHeight + stroke))
+        , SvgAttr.height (String.fromFloat (length + gripHeight + look.stroke))
         , SvgAttr.style "overflow: visible"
         ]
         [ Svg.line
@@ -37,8 +44,8 @@ hanging ink paper stroke dy =
             , SvgAttr.y1 "0"
             , SvgAttr.x2 (String.fromFloat (width / 2))
             , SvgAttr.y2 (String.fromFloat (length + dy))
-            , SvgAttr.stroke ink
-            , SvgAttr.strokeWidth (String.fromFloat stroke)
+            , SvgAttr.stroke look.ink
+            , SvgAttr.strokeWidth (String.fromFloat look.stroke)
             ]
             []
         , Svg.rect
@@ -47,9 +54,9 @@ hanging ink paper stroke dy =
             , SvgAttr.width (String.fromFloat gripWidth)
             , SvgAttr.height (String.fromFloat gripHeight)
             , SvgAttr.rx (String.fromFloat (gripWidth / 2))
-            , SvgAttr.fill paper
-            , SvgAttr.stroke ink
-            , SvgAttr.strokeWidth (String.fromFloat stroke)
+            , SvgAttr.fill look.paper
+            , SvgAttr.stroke look.ink
+            , SvgAttr.strokeWidth (String.fromFloat look.stroke)
             ]
             []
         ]

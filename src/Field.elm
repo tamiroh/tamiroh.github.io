@@ -1,6 +1,6 @@
-module Field exposing (Field, Obstacle, around, blocked, box, expel, fits, heart, outline, repel, roomy, square, triangle)
+module Field exposing (Field, Obstacle, around, blocked, expel, fits, heart, outline, repel, roomy, square, triangle)
 
-import Geometry exposing (Position, Rect, Screen, Vector)
+import Geometry exposing (Position, Screen, Vector)
 
 
 
@@ -153,24 +153,14 @@ type Obstacle
     = Obstacle (List Position)
 
 
-box : Rect -> Obstacle
-box rect =
-    Obstacle
-        [ ( rect.left, rect.top )
-        , ( rect.right, rect.top )
-        , ( rect.right, rect.bottom )
-        , ( rect.left, rect.bottom )
-        ]
-
-
 square : Position -> Float -> Obstacle
 square ( x, y ) span =
-    box
-        { left = x - span / 2
-        , top = y - span / 2
-        , right = x + span / 2
-        , bottom = y + span / 2
-        }
+    Obstacle
+        [ ( x - span / 2, y - span / 2 )
+        , ( x + span / 2, y - span / 2 )
+        , ( x + span / 2, y + span / 2 )
+        , ( x - span / 2, y + span / 2 )
+        ]
 
 
 triangle : Position -> Float -> Obstacle

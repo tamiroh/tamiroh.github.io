@@ -1,4 +1,4 @@
-module Geometry exposing (Position, Rect, Screen, Vector, wrap, wrapDelta)
+module Geometry exposing (Position, Screen, Vector, wrap, wrapDelta)
 
 -- GEOMETRY
 
@@ -14,14 +14,6 @@ type alias Vector =
 type alias Screen =
     { width : Float
     , height : Float
-    }
-
-
-type alias Rect =
-    { left : Float
-    , top : Float
-    , right : Float
-    , bottom : Float
     }
 
 

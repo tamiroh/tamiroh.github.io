@@ -520,12 +520,7 @@ field model =
 
 boardBlock : Screen -> Obstacle
 boardBlock screen =
-    Field.box
-        { left = screen.width / 2 - Board.size / 2
-        , top = screen.height / 2 - Board.size / 2
-        , right = screen.width / 2 + Board.size / 2
-        , bottom = screen.height / 2 + Board.size / 2
-        }
+    Field.square ( screen.width / 2, screen.height / 2 ) Board.size
 
 
 

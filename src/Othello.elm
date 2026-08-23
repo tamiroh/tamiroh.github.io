@@ -39,7 +39,7 @@ new : Board
 new =
     let
         middle =
-            Grid.count // 2
+            Grid.side // 2
     in
     Board
         { discs =
@@ -203,7 +203,7 @@ weightAt : Cell -> Int
 weightAt ( column, row ) =
     let
         fold value =
-            min value (Grid.count - 1 - value)
+            min value (Grid.side - 1 - value)
     in
     weights
         |> List.drop (fold row)

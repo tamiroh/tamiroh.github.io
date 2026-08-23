@@ -1,4 +1,4 @@
-module Grid exposing (Cell, cells, count, inside, neighbours)
+module Grid exposing (Cell, cells, inside, neighbours, side)
 
 -- GRID
 
@@ -7,8 +7,8 @@ type alias Cell =
     ( Int, Int )
 
 
-count : Int
-count =
+side : Int
+side =
     8
 
 
@@ -16,14 +16,14 @@ cells : List Cell
 cells =
     let
         indices =
-            List.range 0 (count - 1)
+            List.range 0 (side - 1)
     in
     List.concatMap (\column -> List.map (Tuple.pair column) indices) indices
 
 
 inside : Cell -> Bool
 inside ( column, row ) =
-    column >= 0 && column < count && row >= 0 && row < count
+    column >= 0 && column < side && row >= 0 && row < side
 
 
 neighbours : Cell -> List Cell

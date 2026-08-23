@@ -219,7 +219,7 @@ update msg model =
         AnimationFramePassed delta ->
             ( { model
                 | elapsed = model.elapsed + delta
-                , shock = Motion.advance (Motion.shockLifetime Grid.count) delta model.shock
+                , shock = Motion.advance (Motion.shockLifetime Grid.side) delta model.shock
                 , cord = Motion.advance Motion.pullDuration delta model.cord
                 , boids = Boid.step delta (field model) model.pointer model.boids
                 , walker = Walker.step delta (Torus.around model.screen) (ground model.screen) model.pointer model.walker
@@ -374,7 +374,7 @@ boardLayer model =
                 { look = look model.theme
                 , screen = model.screen
                 , pointer = model.pointer
-                , drift = Motion.offset Grid.count model.shock model.elapsed
+                , drift = Motion.offset Grid.side model.shock model.elapsed
                 , content = contentAt model
                 }
             )

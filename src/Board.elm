@@ -74,7 +74,7 @@ margin =
 
 size : Float
 size =
-    spacing * toFloat Grid.count + margin * 2
+    spacing * toFloat Grid.side + margin * 2
 
 
 position : Int -> Float

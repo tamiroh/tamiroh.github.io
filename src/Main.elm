@@ -307,7 +307,7 @@ view model =
         ]
         [ pageStyle model.theme
         , backgroundLayer model.theme
-        , Wallpaper.view (wallpaperInk model.theme) model.wallpaper
+        , Wallpaper.view (wallpaperLook model.theme) model.wallpaper
         , eyeLayer model.theme model.screen model.elapsed model.eyes
         , blockLayer model.theme model.screen model.blocks
         , boidLayer model.theme model.screen model.boids
@@ -600,11 +600,11 @@ paper theme =
             "#000000"
 
 
-wallpaperInk : Theme -> String
-wallpaperInk theme =
+wallpaperLook : Theme -> Wallpaper.Look
+wallpaperLook theme =
     case theme of
         Light ->
-            "#eeeeee"
+            { ink = "#eeeeee" }
 
         Dark ->
-            "#111111"
+            { ink = "#111111" }

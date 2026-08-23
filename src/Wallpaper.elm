@@ -1,4 +1,4 @@
-module Wallpaper exposing (Rendered, Wallpaper, blank, generator, render, view)
+module Wallpaper exposing (Look, Rendered, Wallpaper, blank, generator, render, view)
 
 import Html exposing (Html)
 import Html.Attributes as Attr
@@ -8,6 +8,11 @@ import Screen exposing (Screen)
 
 
 -- WALLPAPER
+
+
+type alias Look =
+    { ink : String
+    }
 
 
 type Rendered
@@ -24,8 +29,8 @@ render screen chosen =
     Rendered (draw (columns screen) (rows screen) chosen)
 
 
-view : String -> Rendered -> Html msg
-view ink (Rendered text) =
+view : Look -> Rendered -> Html msg
+view look (Rendered text) =
     Html.pre
         [ Attr.style "position" "fixed"
         , Attr.style "inset" "0"
@@ -34,7 +39,7 @@ view ink (Rendered text) =
         , Attr.style "font-family" "monospace"
         , Attr.style "font-size" (String.fromFloat fontSize ++ "px")
         , Attr.style "line-height" (String.fromFloat lineHeight)
-        , Attr.style "color" ink
+        , Attr.style "color" look.ink
         , Attr.style "pointer-events" "none"
         , Attr.style "user-select" "none"
         ]

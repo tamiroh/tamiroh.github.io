@@ -1,8 +1,9 @@
-module Board exposing (Content(..), Look, Mark(..), Scene, Shade(..), size, view)
+module Board exposing (Content(..), Look, Mark(..), Scene, Shade(..), Shock, shockLifetime, size, view)
 
 import Cursor
 import Geometry exposing (Position, Vector)
 import Grid exposing (Cell)
+import Millis exposing (Millis)
 import Screen exposing (Screen)
 import Skull
 import Svg exposing (Svg)
@@ -25,8 +26,15 @@ type alias Scene =
     { look : Look
     , screen : Screen
     , pointer : Maybe Position
-    , drift : Cell -> Vector
+    , shock : Maybe Shock
+    , elapsed : Millis
     , content : Cell -> Content
+    }
+
+
+type alias Shock =
+    { origin : Cell
+    , elapsed : Millis
     }
 
 
@@ -127,7 +135,7 @@ cellView scene pointer cell =
             hovered.shift
 
         ( driftX, driftY ) =
-            scene.drift cell
+            driftAt scene cell
 
         seen =
             scene.content cell
@@ -223,6 +231,109 @@ pip scene ( x, y ) ( column, row ) =
         , SvgAttr.fill scene.look.paper
         ]
         []
+
+
+
+-- SHOCK
+
+
+shockAmplitude : Float
+shockAmplitude =
+    140
+
+
+shockDuration : Millis
+shockDuration =
+    700
+
+
+shockDelay : Millis
+shockDelay =
+    65
+
+
+shockLifetime : Millis
+shockLifetime =
+    shockDuration + shockDelay * maxDistance
+
+
+maxDistance : Float
+maxDistance =
+    sqrt 2 * (toFloat Grid.side - 1)
+
+
+displacement : Maybe Shock -> Cell -> Vector
+displacement shock ( column, row ) =
+    case shock of
+        Nothing ->
+            ( 0, 0 )
+
+        Just { origin, elapsed } ->
+            let
+                ( originColumn, originRow ) =
+                    origin
+
+                dx =
+                    toFloat (column - originColumn)
+
+                dy =
+                    toFloat (row - originRow)
+
+                distance =
+                    sqrt (dx * dx + dy * dy)
+
+                local =
+                    elapsed - distance * shockDelay
+            in
+            if distance == 0 || local <= 0 || local >= shockDuration then
+                ( 0, 0 )
+
+            else
+                let
+                    amplitude =
+                        shockAmplitude * sin (pi * local / shockDuration) * (distance / maxDistance) ^ 2
+                in
+                ( dx / distance * amplitude, dy / distance * amplitude )
+
+
+
+-- DRIFT
+
+
+driftAmplitude : Float
+driftAmplitude =
+    1.2
+
+
+driftAt : Scene -> Cell -> Vector
+driftAt scene cell =
+    let
+        ( shockX, shockY ) =
+            displacement scene.shock cell
+
+        ( driftX, driftY ) =
+            wander scene.elapsed cell
+    in
+    ( shockX + driftX, shockY + driftY )
+
+
+wander : Millis -> Cell -> Vector
+wander time ( column, row ) =
+    let
+        seconds =
+            time / 1000
+
+        seed =
+            toFloat (column * 3 + row * 5)
+    in
+    ( wobble seconds seed 1.3 2.7
+    , wobble seconds (seed * 1.7 + 2.1) 1.1 2.3
+    )
+
+
+wobble : Float -> Float -> Float -> Float -> Float
+wobble seconds seed slow fast =
+    driftAmplitude * (sin (seconds * slow + seed) + 0.5 * sin (seconds * fast + seed * 1.9))
 
 
 

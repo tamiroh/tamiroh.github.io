@@ -18,7 +18,6 @@ import Html.Events
 import Json.Decode
 import Millis exposing (Millis)
 import Minesweeper
-import Motion exposing (Shock)
 import Othello
 import Process
 import Random
@@ -27,6 +26,7 @@ import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
 import Task
 import Time
+import Timer
 import Torus exposing (Torus)
 import Walker exposing (Walker)
 import Wallpaper exposing (Pattern, Rendered)
@@ -53,7 +53,7 @@ main =
 type alias Model =
     { play : Play
     , wallpaper : Rendered
-    , shock : Maybe Shock
+    , shock : Maybe Board.Shock
     , elapsed : Millis
     , theme : Theme
     , cord : Maybe Pull
@@ -219,8 +219,8 @@ update msg model =
         AnimationFramePassed delta ->
             ( { model
                 | elapsed = model.elapsed + delta
-                , shock = Motion.advance (Motion.shockLifetime Grid.side) delta model.shock
-                , cord = Motion.advance Cord.pullDuration delta model.cord
+                , shock = Timer.advance Board.shockLifetime delta model.shock
+                , cord = Timer.advance Cord.pullDuration delta model.cord
                 , boids = Boid.step delta (field model) model.pointer model.boids
                 , walker = Walker.step delta (Torus.around model.screen) (ground model.screen) model.pointer model.walker
                 , eyes = List.filterMap (Eye.alive model.elapsed model.pointer) model.eyes
@@ -374,7 +374,8 @@ boardLayer model =
                 { look = look model.theme
                 , screen = model.screen
                 , pointer = model.pointer
-                , drift = Motion.offset Grid.side model.shock model.elapsed
+                , shock = model.shock
+                , elapsed = model.elapsed
                 , content = contentAt model
                 }
             )

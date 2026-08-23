@@ -439,7 +439,7 @@ board model =
         , SvgAttr.viewBox ("0 0 " ++ String.fromFloat boardSize ++ " " ++ String.fromFloat boardSize)
         , SvgAttr.style "overflow: visible"
         ]
-        (List.concatMap (cellView model (boardPointer model)) Grid.cells)
+        (List.concatMap (cellView model (pointerOnBoard model)) Grid.cells)
 
 
 cellView : Model -> Maybe Position -> Cell -> List (Svg Msg)
@@ -448,14 +448,17 @@ cellView model pointer cell =
         ( column, row ) =
             cell
 
-        ( shoveX, shoveY ) =
-            shove pointer cell
+        hovered =
+            hover pointer cell
+
+        ( shiftX, shiftY ) =
+            hovered.shift
 
         ( driftX, driftY ) =
             Motion.offset Grid.count model.shock model.elapsed cell
 
         ( dx, dy ) =
-            ( driftX + shoveX, driftY + shoveY )
+            ( driftX + shiftX, driftY + shiftY )
 
         seen =
             content model cell
@@ -475,7 +478,7 @@ cellView model pointer cell =
             position row + gap / 2 + dy
 
         size =
-            swell pointer cell
+            hovered.scale
     in
     [ Svg.g
         [ SvgAttr.transform (about (x + cellSize / 2) (y + cellSize / 2) size)
@@ -740,18 +743,29 @@ hoverReach =
     120
 
 
-hoverGrow : Float
-hoverGrow =
+hoverSwell : Float
+hoverSwell =
     0.35
 
 
-hoverPush : Float
-hoverPush =
+hoverShift : Float
+hoverShift =
     7
 
 
-boardPointer : Model -> Maybe Position
-boardPointer model =
+type alias HoverEffect =
+    { scale : Float
+    , shift : Vector
+    }
+
+
+noEffect : HoverEffect
+noEffect =
+    { scale = 1, shift = ( 0, 0 ) }
+
+
+pointerOnBoard : Model -> Maybe Position
+pointerOnBoard model =
     Maybe.map
         (\( px, py ) ->
             ( px - (model.screen.width / 2 - boardSize / 2)
@@ -761,48 +775,35 @@ boardPointer model =
         model.pointer
 
 
-reachOf : Maybe Position -> Cell -> Maybe ( Float, Float, Float )
-reachOf pointer ( column, row ) =
-    Maybe.map
-        (\( px, py ) ->
+hover : Maybe Position -> Cell -> HoverEffect
+hover pointer ( column, row ) =
+    case pointer of
+        Nothing ->
+            noEffect
+
+        Just ( px, py ) ->
             let
                 dx =
                     position column + spacing / 2 - px
 
                 dy =
                     position row + spacing / 2 - py
+
+                apart =
+                    sqrt (dx * dx + dy * dy)
             in
-            ( dx, dy, sqrt (dx * dx + dy * dy) )
-        )
-        pointer
+            { scale = 1 + hoverSwell * max 0 (1 - apart / spacing)
+            , shift =
+                if apart == 0 || apart >= hoverReach then
+                    ( 0, 0 )
 
-
-swell : Maybe Position -> Cell -> Float
-swell pointer cell =
-    case reachOf pointer cell of
-        Nothing ->
-            1
-
-        Just ( _, _, apart ) ->
-            1 + hoverGrow * max 0 (1 - apart / spacing)
-
-
-shove : Maybe Position -> Cell -> Vector
-shove pointer cell =
-    case reachOf pointer cell of
-        Nothing ->
-            ( 0, 0 )
-
-        Just ( dx, dy, apart ) ->
-            if apart == 0 || apart >= hoverReach then
-                ( 0, 0 )
-
-            else
-                let
-                    push =
-                        hoverPush * sin (pi * apart / hoverReach)
-                in
-                ( dx / apart * push, dy / apart * push )
+                else
+                    let
+                        push =
+                            hoverShift * sin (pi * apart / hoverReach)
+                    in
+                    ( dx / apart * push, dy / apart * push )
+            }
 
 
 

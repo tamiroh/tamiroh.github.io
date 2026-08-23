@@ -5,6 +5,7 @@ import Millis exposing (Millis)
 import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
 import Torus exposing (Torus)
+import Transform
 
 
 
@@ -218,16 +219,10 @@ figure : Look -> Pose -> Svg msg
 figure look pose =
     Svg.g
         [ SvgAttr.transform
-            (String.concat
-                [ "translate("
-                , num pose.x
-                , ","
-                , num pose.ground
-                , ") rotate("
-                , num pose.tilt
-                , ") scale("
-                , num scale
-                , ")"
+            (String.join " "
+                [ Transform.translate ( pose.x, pose.ground )
+                , Transform.rotate pose.tilt
+                , Transform.scale scale
                 ]
             )
         , SvgAttr.fill "none"
@@ -271,8 +266,7 @@ limb : Position -> Float -> String -> Svg msg
 limb ( hx, hy ) swing shape =
     Svg.path
         [ SvgAttr.d shape
-        , SvgAttr.transform
-            (String.concat [ "rotate(", num swing, " ", num hx, " ", num hy, ")" ])
+        , SvgAttr.transform (Transform.rotateAbout swing ( hx, hy ))
         ]
         []
 

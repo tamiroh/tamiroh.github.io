@@ -3,6 +3,7 @@ module Bird exposing (Look, view)
 import Geometry exposing (Position)
 import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
+import Transform
 
 
 
@@ -33,7 +34,7 @@ view look pose =
     let
         spot : Position -> String
         spot ( x, y ) =
-            num x ++ "," ++ num y
+            String.fromFloat x ++ "," ++ String.fromFloat y
 
         outline : String
         outline =
@@ -46,25 +47,14 @@ view look pose =
         , SvgAttr.strokeWidth (String.fromFloat (look.stroke / width))
         , SvgAttr.strokeLinejoin "round"
         , SvgAttr.transform
-            (String.concat
-                [ "translate("
-                , num pose.x
-                , ","
-                , num pose.y
-                , ") rotate("
-                , num (pose.heading + 90)
-                , ") scale("
-                , num width
-                , ")"
+            (String.join " "
+                [ Transform.translate ( pose.x, pose.y )
+                , Transform.rotate (pose.heading + 90)
+                , Transform.scale width
                 ]
             )
         ]
         []
-
-
-num : Float -> String
-num =
-    String.fromFloat
 
 
 

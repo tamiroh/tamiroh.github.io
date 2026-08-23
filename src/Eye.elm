@@ -6,6 +6,7 @@ import Millis exposing (Millis)
 import Random
 import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
+import Transform
 
 
 
@@ -184,7 +185,7 @@ view look now eye =
         Just
             (Svg.g
                 [ SvgAttr.transform
-                    ("translate(" ++ String.fromFloat eye.x ++ "," ++ String.fromFloat eye.y ++ ")")
+                    (Transform.translate ( eye.x, eye.y ))
                 , SvgAttr.stroke look.ink
                 , SvgAttr.strokeWidth (String.fromFloat look.stroke)
                 , SvgAttr.strokeLinejoin "round"

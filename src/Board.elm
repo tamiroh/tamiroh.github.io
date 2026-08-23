@@ -9,6 +9,7 @@ import Skull
 import Svg exposing (Svg)
 import Svg.Attributes as SvgAttr
 import Svg.Events
+import Transform
 
 
 
@@ -92,18 +93,10 @@ position index =
 
 about : Position -> Float -> String
 about ( midX, midY ) factor =
-    String.concat
-        [ "translate("
-        , String.fromFloat midX
-        , ","
-        , String.fromFloat midY
-        , ") scale("
-        , String.fromFloat factor
-        , ") translate("
-        , String.fromFloat (negate midX)
-        , ","
-        , String.fromFloat (negate midY)
-        , ")"
+    String.join " "
+        [ Transform.translate ( midX, midY )
+        , Transform.scale factor
+        , Transform.translate ( negate midX, negate midY )
         ]
 
 

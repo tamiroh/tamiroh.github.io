@@ -12,6 +12,7 @@ import Eye exposing (Eye)
 import Field exposing (Field, Obstacle)
 import Geometry exposing (Position)
 import Grid exposing (Cell)
+import Ground
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events
@@ -237,7 +238,7 @@ update msg model =
                 , shock = Board.step delta model.shock
                 , cord = Cord.step delta model.cord
                 , boids = Boid.step delta (field model.screen) model.pointer model.boids
-                , walkers = List.map (Walker.step delta model.elapsed (Torus.around model.screen) (groundLevel model.screen) model.pointer) model.walkers
+                , walkers = List.map (Walker.step delta model.elapsed (Torus.around model.screen) (Ground.level model.screen) model.pointer) model.walkers
                 , eyes = List.filterMap (Eye.step model.elapsed model.pointer) model.eyes
                 , blocks =
                     model.blocks
@@ -427,7 +428,7 @@ view model =
         , eyeLayer model.theme model.screen model.elapsed model.eyes
         , blockLayer model.theme model.screen model.elapsed model.blocks
         , boidLayer model.theme model.screen model.boids
-        , groundLayer model.theme model.screen model.elapsed model.walkers
+        , Ground.view (look model.theme) model.elapsed model.screen model.walkers
         , Html.div
             [ Attr.style "position" "fixed"
             , Attr.style "inset" "0"
@@ -588,40 +589,6 @@ boidLayer theme screen boids =
         (List.concatMap boidView boids)
 
 
-groundLayer : Theme -> Screen -> Millis -> List Walker -> Html msg
-groundLayer theme screen now walkers =
-    let
-        level =
-            groundLevel screen
-    in
-    Svg.svg
-        [ SvgAttr.width (String.fromFloat screen.width)
-        , SvgAttr.height (String.fromFloat screen.height)
-        , Attr.style "position" "fixed"
-        , Attr.style "inset" "0"
-        , Attr.style "pointer-events" "none"
-        ]
-        (Svg.rect
-            [ SvgAttr.x "0"
-            , SvgAttr.y (String.fromFloat level)
-            , SvgAttr.width (String.fromFloat screen.width)
-            , SvgAttr.height (String.fromFloat groundDepth)
-            , SvgAttr.fill (paper theme)
-            ]
-            []
-            :: Svg.line
-                [ SvgAttr.x1 "0"
-                , SvgAttr.y1 (String.fromFloat level)
-                , SvgAttr.x2 (String.fromFloat screen.width)
-                , SvgAttr.y2 (String.fromFloat level)
-                , SvgAttr.stroke (ink theme)
-                , SvgAttr.strokeWidth (String.fromFloat lineWidth)
-                ]
-                []
-            :: List.concatMap (Walker.view (look theme) now (Torus.around screen) level) walkers
-        )
-
-
 boardLayer : Model -> Html Msg
 boardLayer model =
     let
@@ -697,20 +664,6 @@ boardLayer model =
                 }
             )
         ]
-
-
-
--- GROUND
-
-
-groundDepth : Float
-groundDepth =
-    52
-
-
-groundLevel : Screen -> Float
-groundLevel screen =
-    screen.height - groundDepth
 
 
 

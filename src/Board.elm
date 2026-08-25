@@ -7,6 +7,7 @@ import Geometry exposing (Position, Vector)
 import Grid exposing (Cell)
 import Html.Attributes as Attr
 import Millis exposing (Millis)
+import Piece
 import Screen exposing (Screen)
 import Skull
 import Svg exposing (Svg)
@@ -229,21 +230,7 @@ cellMarks scene seen ( x, y ) =
 
 disc : Scene -> Shade -> Position -> Svg msg
 disc scene shade ( x, y ) =
-    Svg.circle
-        [ SvgAttr.cx (String.fromFloat (x + cellSize / 2))
-        , SvgAttr.cy (String.fromFloat (y + cellSize / 2))
-        , SvgAttr.r (String.fromFloat discRadius)
-        , SvgAttr.fill
-            (case shade of
-                Dark ->
-                    scene.look.ink
-
-                Light ->
-                    scene.look.paper
-            )
-        , SvgAttr.stroke scene.look.ink
-        ]
-        []
+    Piece.view discRadius ( x + cellSize / 2, y + cellSize / 2 ) scene.look.ink scene.look.paper (shade == Dark)
 
 
 

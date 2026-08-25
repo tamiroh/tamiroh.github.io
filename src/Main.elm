@@ -257,9 +257,21 @@ update msg model =
                 wallpaperCmd =
                     Random.generate PatternChosen Wallpaper.generator
 
+                game : Walker.Game
+                game =
+                    case model.play of
+                        Fresh ->
+                            Walker.NoGame
+
+                        Mines _ ->
+                            Walker.Minesweeper
+
+                        Discs _ ->
+                            Walker.Othello
+
                 walkerCmd : Cmd Msg
                 walkerCmd =
-                    Random.generate WalkersSpoke (Walker.trySpeakAll model.elapsed model.walkers)
+                    Random.generate WalkersSpoke (Walker.trySpeakAll game model.elapsed model.walkers)
 
                 eyeCmd : List (Cmd Msg)
                 eyeCmd =

@@ -1,8 +1,9 @@
-module Walker exposing (Walker, generator, step, trySpeakAll, view)
+module Walker exposing (Game(..), Walker, generator, step, trySpeakAll, view)
 
 import Dice
 import Geometry exposing (Position)
 import Millis exposing (Millis)
+import Piece
 import Random
 import Screen exposing (Screen)
 import Svg exposing (Svg)
@@ -34,8 +35,19 @@ type Walker
 type alias Bubble =
     { born : Millis
     , life : Millis
-    , pips : Int
+    , content : Content
     }
+
+
+type Content
+    = Pips Int
+    | Piece Bool
+
+
+type Game
+    = NoGame
+    | Minesweeper
+    | Othello
 
 
 generator : Screen -> Random.Generator Walker
@@ -100,34 +112,52 @@ bubbleLifeGenerator =
     Random.float 2200 4200
 
 
-pipsGenerator : Random.Generator Int
+pipsGenerator : Random.Generator Content
 pipsGenerator =
-    Random.int 1 6
+    Random.map Pips (Random.int 1 6)
 
 
-trySpeak : Millis -> Walker -> Random.Generator Walker
-trySpeak now (Walker walker) =
+pieceGenerator : Random.Generator Content
+pieceGenerator =
+    Random.map Piece (Random.uniform True [ False ])
+
+
+contentGenerator : Game -> Random.Generator Content
+contentGenerator game =
+    case game of
+        Othello ->
+            pieceGenerator
+
+        NoGame ->
+            pipsGenerator
+
+        Minesweeper ->
+            pipsGenerator
+
+
+trySpeak : Game -> Millis -> Walker -> Random.Generator Walker
+trySpeak game now (Walker walker) =
     case walker.bubble of
         Just _ ->
             Random.constant (Walker walker)
 
         Nothing ->
             Random.map3
-                (\roll life pips ->
+                (\roll life content ->
                     if roll > bubbleChance then
                         Walker walker
 
                     else
-                        Walker { walker | bubble = Just { born = now, life = life, pips = pips } }
+                        Walker { walker | bubble = Just { born = now, life = life, content = content } }
                 )
                 (Random.float 0 1)
                 bubbleLifeGenerator
-                pipsGenerator
+                (contentGenerator game)
 
 
-trySpeakAll : Millis -> List Walker -> Random.Generator (List Walker)
-trySpeakAll now walkers =
-    List.foldr (\walker acc -> Random.map2 (::) (trySpeak now walker) acc) (Random.constant []) walkers
+trySpeakAll : Game -> Millis -> List Walker -> Random.Generator (List Walker)
+trySpeakAll game now walkers =
+    List.foldr (\walker acc -> Random.map2 (::) (trySpeak game now walker) acc) (Random.constant []) walkers
 
 
 view : Look -> Millis -> Torus -> Float -> Walker -> List (Svg msg)
@@ -162,7 +192,7 @@ view look now torus level (Walker walker) =
                             []
 
                         Just present ->
-                            [ speechBubble look (bubbleFade now present) x ground present.pips ]
+                            [ speechBubble look (bubbleFade now present) x ground present.content ]
                    )
         )
         (Torus.copiesX width torus here)
@@ -206,8 +236,8 @@ bubbleGap =
     4
 
 
-speechBubble : Look -> Float -> Float -> Float -> Int -> Svg msg
-speechBubble look opacity x ground pips =
+speechBubble : Look -> Float -> Float -> Float -> Content -> Svg msg
+speechBubble look opacity x ground content =
     Svg.g
         [ SvgAttr.transform (Transform.translate ( x, ground - height - bubbleGap - bubbleTail ))
         , SvgAttr.opacity (num opacity)
@@ -216,8 +246,23 @@ speechBubble look opacity x ground pips =
         , SvgAttr.strokeLinejoin "round"
         ]
         (Svg.path [ SvgAttr.d bubbleShape, SvgAttr.fill look.paper ] []
-            :: Dice.view bubbleSize ( negate (bubbleSize / 2), negate bubbleSize ) look.ink pips
+            :: contentView look content
         )
+
+
+contentView : Look -> Content -> List (Svg msg)
+contentView look content =
+    case content of
+        Pips count ->
+            Dice.view bubbleSize ( negate (bubbleSize / 2), negate bubbleSize ) look.ink count
+
+        Piece dark ->
+            [ Piece.view pieceRadius ( 0, negate (bubbleSize / 2) ) look.ink look.paper dark ]
+
+
+pieceRadius : Float
+pieceRadius =
+    bubbleSize * 0.34
 
 
 bubbleShape : String

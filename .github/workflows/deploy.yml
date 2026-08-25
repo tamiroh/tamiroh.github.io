@@ -33,7 +33,9 @@ jobs:
       - name: Assemble site
         run: |
           mkdir -p dist
-          cp index.html main.js dist/
+          version=$(sha256sum main.js | cut -c1-10)
+          sed "s/main\.js/main.js?v=$version/" index.html > dist/index.html
+          cp main.js dist/
 
       - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
 

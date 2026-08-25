@@ -1,5 +1,6 @@
-module Walker exposing (Look, Walker, generator, step, view)
+module Walker exposing (Look, Walker, generator, speakAll, step, view)
 
+import Dice
 import Geometry exposing (Position)
 import Millis exposing (Millis)
 import Random
@@ -26,13 +27,21 @@ type Walker
         { walked : Float
         , pace : Float
         , speed : Float
+        , bubble : Maybe Bubble
         }
+
+
+type alias Bubble =
+    { born : Millis
+    , life : Millis
+    , pips : Int
+    }
 
 
 generator : Screen -> Random.Generator Walker
 generator screen =
     Random.map2
-        (\walked spd -> Walker { walked = walked, pace = spd, speed = spd })
+        (\walked spd -> Walker { walked = walked, pace = spd, speed = spd, bubble = Nothing })
         (Random.float 0 screen.width)
         speedGenerator
 
@@ -52,21 +61,77 @@ fastest =
     36
 
 
-step : Millis -> Torus -> Float -> Maybe Position -> Walker -> Walker
-step delta torus level pointer (Walker walker) =
+step : Millis -> Millis -> Torus -> Float -> Maybe Position -> Walker -> Walker
+step delta now torus level pointer (Walker walker) =
     let
         current =
             pace walker.speed torus level walker.walked pointer
+
+        bubble =
+            Maybe.andThen
+                (\present ->
+                    if now - present.born >= present.life then
+                        Nothing
+
+                    else
+                        Just present
+                )
+                walker.bubble
     in
     Walker
         { walked = walker.walked + current * delta / 1000
         , pace = current
         , speed = walker.speed
+        , bubble = bubble
         }
 
 
-view : Look -> Torus -> Float -> Walker -> List (Svg msg)
-view look torus level (Walker walker) =
+
+-- TALK
+
+
+bubbleChance : Float
+bubbleChance =
+    0.05
+
+
+bubbleLifeGenerator : Random.Generator Millis
+bubbleLifeGenerator =
+    Random.float 2200 4200
+
+
+pipsGenerator : Random.Generator Int
+pipsGenerator =
+    Random.int 1 6
+
+
+speak : Millis -> Walker -> Random.Generator Walker
+speak now (Walker walker) =
+    case walker.bubble of
+        Just _ ->
+            Random.constant (Walker walker)
+
+        Nothing ->
+            Random.map3
+                (\roll life pips ->
+                    if roll > bubbleChance then
+                        Walker walker
+
+                    else
+                        Walker { walker | bubble = Just { born = now, life = life, pips = pips } }
+                )
+                (Random.float 0 1)
+                bubbleLifeGenerator
+                pipsGenerator
+
+
+speakAll : Millis -> List Walker -> Random.Generator (List Walker)
+speakAll now walkers =
+    List.foldr (\walker acc -> Random.map2 (::) (speak now walker) acc) (Random.constant []) walkers
+
+
+view : Look -> Millis -> Torus -> Float -> Walker -> List (Svg msg)
+view look now torus level (Walker walker) =
     let
         here =
             strolled torus walker.walked
@@ -79,18 +144,135 @@ view look torus level (Walker walker) =
 
         tilt =
             negate (min pitch (hurry * 3))
+
+        ground =
+            level - lift
     in
-    List.map
+    List.concatMap
         (\x ->
             figure look
                 { x = x
-                , ground = level - lift
+                , ground = ground
                 , swing = swing
                 , tilt = tilt
                 , standing = walker.pace <= 0
                 }
+                :: (case walker.bubble of
+                        Nothing ->
+                            []
+
+                        Just present ->
+                            [ speechBubble look (bubbleFade now present) x ground present.pips ]
+                   )
         )
         (Torus.copiesX width torus here)
+
+
+
+-- BUBBLE
+
+
+bubbleFadeSpan : Millis
+bubbleFadeSpan =
+    200
+
+
+bubbleFade : Millis -> Bubble -> Float
+bubbleFade now present =
+    let
+        age =
+            now - present.born
+    in
+    clamp 0 1 (min (age / bubbleFadeSpan) ((present.life - age) / bubbleFadeSpan))
+
+
+bubbleSize : Float
+bubbleSize =
+    32
+
+
+bubbleRadius : Float
+bubbleRadius =
+    5
+
+
+bubbleTail : Float
+bubbleTail =
+    7
+
+
+bubbleGap : Float
+bubbleGap =
+    4
+
+
+speechBubble : Look -> Float -> Float -> Float -> Int -> Svg msg
+speechBubble look opacity x ground pips =
+    Svg.g
+        [ SvgAttr.transform (Transform.translate ( x, ground - height - bubbleGap - bubbleTail ))
+        , SvgAttr.opacity (num opacity)
+        , SvgAttr.stroke look.ink
+        , SvgAttr.strokeWidth (num look.stroke)
+        , SvgAttr.strokeLinejoin "round"
+        ]
+        (Svg.path [ SvgAttr.d bubbleShape, SvgAttr.fill look.paper ] []
+            :: Dice.view bubbleSize ( negate (bubbleSize / 2), negate bubbleSize ) look.ink pips
+        )
+
+
+bubbleShape : String
+bubbleShape =
+    let
+        half =
+            bubbleSize / 2
+
+        halfTail =
+            bubbleTail / 2
+    in
+    String.join " "
+        [ "M"
+        , num (negate half + bubbleRadius)
+        , num (negate bubbleSize)
+        , "Q"
+        , num (negate half)
+        , num (negate bubbleSize)
+        , num (negate half)
+        , num (negate bubbleSize + bubbleRadius)
+        , "L"
+        , num (negate half)
+        , num (negate bubbleRadius)
+        , "Q"
+        , num (negate half)
+        , num 0
+        , num (negate half + bubbleRadius)
+        , num 0
+        , "L"
+        , num (negate halfTail)
+        , num 0
+        , "L"
+        , num 0
+        , num bubbleTail
+        , "L"
+        , num halfTail
+        , num 0
+        , "L"
+        , num (half - bubbleRadius)
+        , num 0
+        , "Q"
+        , num half
+        , num 0
+        , num half
+        , num (negate bubbleRadius)
+        , "L"
+        , num half
+        , num (negate bubbleSize + bubbleRadius)
+        , "Q"
+        , num half
+        , num (negate bubbleSize)
+        , num (half - bubbleRadius)
+        , num (negate bubbleSize)
+        , "Z"
+        ]
 
 
 

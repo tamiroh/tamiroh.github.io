@@ -1,6 +1,7 @@
 module Board exposing (Content(..), Look, Mark(..), Scene, Shade(..), Shock, size, step, view)
 
 import Cursor
+import Dice
 import Door
 import Geometry exposing (Position, Vector)
 import Grid exposing (Cell)
@@ -214,7 +215,7 @@ cellMarks scene seen ( x, y ) =
             []
 
         Open (Pips count) ->
-            List.map (pip scene ( x, y )) (pipCells count)
+            Dice.view cellSize ( x, y ) scene.look.paper count
 
         Open Mine ->
             Skull.view { ink = scene.look.ink, paper = scene.look.paper } cellSize ( x, y )
@@ -241,17 +242,6 @@ disc scene shade ( x, y ) =
                     scene.look.paper
             )
         , SvgAttr.stroke scene.look.ink
-        ]
-        []
-
-
-pip : Scene -> Position -> ( Int, Int ) -> Svg msg
-pip scene ( x, y ) ( column, row ) =
-    Svg.circle
-        [ SvgAttr.cx (String.fromFloat (x + pipOffset column))
-        , SvgAttr.cy (String.fromFloat (y + pipOffset row))
-        , SvgAttr.r (String.fromFloat pipRadius)
-        , SvgAttr.fill scene.look.paper
         ]
         []
 
@@ -355,57 +345,6 @@ driftAt scene ( column, row ) =
 
 
 -- MARKS
-
-
-pipRadius : Float
-pipRadius =
-    cellSize / 14
-
-
-pipOffset : Int -> Float
-pipOffset index =
-    cellSize * (0.25 + 0.25 * toFloat index)
-
-
-pipCells : Int -> List ( Int, Int )
-pipCells count =
-    let
-        corners =
-            [ ( 0, 0 ), ( 2, 0 ), ( 0, 2 ), ( 2, 2 ) ]
-
-        sides =
-            [ ( 0, 1 ), ( 2, 1 ) ]
-
-        center =
-            [ ( 1, 1 ) ]
-    in
-    case count of
-        1 ->
-            center
-
-        2 ->
-            [ ( 0, 0 ), ( 2, 2 ) ]
-
-        3 ->
-            [ ( 0, 0 ), ( 1, 1 ), ( 2, 2 ) ]
-
-        4 ->
-            corners
-
-        5 ->
-            corners ++ center
-
-        6 ->
-            corners ++ sides
-
-        7 ->
-            corners ++ sides ++ center
-
-        8 ->
-            corners ++ sides ++ [ ( 1, 0 ), ( 1, 2 ) ]
-
-        _ ->
-            []
 
 
 discRadius : Float

@@ -127,6 +127,7 @@ type Msg
     | BoidsPlaced (List Boid)
     | BlocksPlaced (List (Maybe Field.Body))
     | WalkersPlaced (List Walker)
+    | WalkersSpoke (List Walker)
     | EyeOpened (Maybe Eye)
 
 
@@ -236,7 +237,7 @@ update msg model =
                 , shock = Board.step delta model.shock
                 , cord = Cord.step delta model.cord
                 , boids = Boid.step delta (field model.screen) model.pointer model.boids
-                , walkers = List.map (Walker.step delta (Torus.around model.screen) (groundLevel model.screen) model.pointer) model.walkers
+                , walkers = List.map (Walker.step delta model.elapsed (Torus.around model.screen) (groundLevel model.screen) model.pointer) model.walkers
                 , eyes = List.filterMap (Eye.step model.elapsed model.pointer) model.eyes
                 , blocks =
                     model.blocks
@@ -253,6 +254,7 @@ update msg model =
             ( model
             , Cmd.batch
                 (Random.generate PatternChosen Wallpaper.generator
+                    :: Random.generate WalkersSpoke (Walker.speakAll model.elapsed model.walkers)
                     :: (if model.theme == Dark then
                             [ Random.generate EyeOpened (Eye.generator (field model.screen) model.elapsed) ]
 
@@ -343,6 +345,9 @@ update msg model =
         WalkersPlaced walkers ->
             ( { model | walkers = walkers }, Cmd.none )
 
+        WalkersSpoke walkers ->
+            ( { model | walkers = walkers }, Cmd.none )
+
         EyeOpened opened ->
             case opened of
                 Nothing ->
@@ -419,7 +424,7 @@ view model =
         , eyeLayer model.theme model.screen model.elapsed model.eyes
         , blockLayer model.theme model.screen model.elapsed model.blocks
         , boidLayer model.theme model.screen model.boids
-        , groundLayer model.theme model.screen model.walkers
+        , groundLayer model.theme model.screen model.elapsed model.walkers
         , Html.div
             [ Attr.style "position" "fixed"
             , Attr.style "inset" "0"
@@ -580,8 +585,8 @@ boidLayer theme screen boids =
         (List.concatMap boidView boids)
 
 
-groundLayer : Theme -> Screen -> List Walker -> Html msg
-groundLayer theme screen walkers =
+groundLayer : Theme -> Screen -> Millis -> List Walker -> Html msg
+groundLayer theme screen now walkers =
     let
         level =
             groundLevel screen
@@ -610,7 +615,7 @@ groundLayer theme screen walkers =
                 , SvgAttr.strokeWidth (String.fromFloat lineWidth)
                 ]
                 []
-            :: List.concatMap (Walker.view (look theme) (Torus.around screen) level) walkers
+            :: List.concatMap (Walker.view (look theme) now (Torus.around screen) level) walkers
         )
 
 

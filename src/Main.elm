@@ -429,9 +429,14 @@ view model =
                         ]
                     )
                 ]
+
+        touchDecoder : Json.Decode.Decoder Msg
+        touchDecoder =
+            Json.Decode.map PointerMoved (Json.Decode.field "touches" (Json.Decode.index 0 positionDecoder))
     in
     Html.div
-        [ Html.Events.on "touchend" (Json.Decode.succeed TouchEnded)
+        [ Html.Events.on "touchmove" touchDecoder
+        , Html.Events.on "touchend" (Json.Decode.succeed TouchEnded)
         , Html.Events.on "touchcancel" (Json.Decode.succeed TouchEnded)
         ]
         [ pageStyle

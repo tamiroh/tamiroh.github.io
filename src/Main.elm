@@ -251,18 +251,24 @@ update msg model =
             )
 
         SecondPassed ->
-            ( model
-            , Cmd.batch
-                (Random.generate PatternChosen Wallpaper.generator
-                    :: Random.generate WalkersSpoke (Walker.speakAll model.elapsed model.walkers)
-                    :: (if model.theme == Dark then
-                            [ Random.generate EyeOpened (Eye.generator (field model.screen) model.elapsed) ]
+            let
+                wallpaperCmd : Cmd Msg
+                wallpaperCmd =
+                    Random.generate PatternChosen Wallpaper.generator
 
-                        else
-                            []
-                       )
-                )
-            )
+                walkerCmd : Cmd Msg
+                walkerCmd =
+                    Random.generate WalkersSpoke (Walker.trySpeakAll model.elapsed model.walkers)
+
+                eyeCmd : List (Cmd Msg)
+                eyeCmd =
+                    if model.theme == Dark then
+                        [ Random.generate EyeOpened (Eye.generator (field model.screen) model.elapsed) ]
+
+                    else
+                        []
+            in
+            ( model, Cmd.batch ([ wallpaperCmd, walkerCmd ] ++ eyeCmd) )
 
         -- ENVIRONMENT
         PointerMoved point ->

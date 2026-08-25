@@ -1,4 +1,4 @@
-module Walker exposing (Walker, generator, speakAll, step, view)
+module Walker exposing (Walker, generator, step, trySpeakAll, view)
 
 import Dice
 import Geometry exposing (Position)
@@ -105,8 +105,8 @@ pipsGenerator =
     Random.int 1 6
 
 
-speak : Millis -> Walker -> Random.Generator Walker
-speak now (Walker walker) =
+trySpeak : Millis -> Walker -> Random.Generator Walker
+trySpeak now (Walker walker) =
     case walker.bubble of
         Just _ ->
             Random.constant (Walker walker)
@@ -125,9 +125,9 @@ speak now (Walker walker) =
                 pipsGenerator
 
 
-speakAll : Millis -> List Walker -> Random.Generator (List Walker)
-speakAll now walkers =
-    List.foldr (\walker acc -> Random.map2 (::) (speak now walker) acc) (Random.constant []) walkers
+trySpeakAll : Millis -> List Walker -> Random.Generator (List Walker)
+trySpeakAll now walkers =
+    List.foldr (\walker acc -> Random.map2 (::) (trySpeak now walker) acc) (Random.constant []) walkers
 
 
 view : Look -> Millis -> Torus -> Float -> Walker -> List (Svg msg)

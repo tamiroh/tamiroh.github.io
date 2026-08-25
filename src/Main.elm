@@ -178,7 +178,7 @@ update msg model =
                 (Random.float 0 (2 * pi))
     in
     case msg of
-        -- PLAYER
+        -- INPUT (pushed to us by a subscription or a DOM event handler)
         CellClicked cell ->
             let
                 startShock : Model -> Model
@@ -214,23 +214,23 @@ update msg model =
         CordPulled ->
             ( { model | theme = toggle model.theme, cord = Just { elapsed = 0 } }, Cmd.none )
 
-        -- GAME
-        GameStarted play ->
-            ( { model | play = play }, Cmd.none )
+        FieldClicked point ->
+            ( model, Random.generate BlockPlaced (blockGenerator point) )
 
-        OthelloResponded ->
-            case model.play of
-                Discs othello ->
-                    let
-                        next =
-                            Othello.respond othello
-                    in
-                    ( { model | play = Discs next }, think next )
+        PointerMoved point ->
+            ( { model | pointer = Just point }, Cmd.none )
 
-                _ ->
-                    ( model, Cmd.none )
+        TouchEnded ->
+            let
+                pointerFade : Millis
+                pointerFade =
+                    350
+            in
+            ( model, Task.perform (\_ -> PointerLeft) (Process.sleep pointerFade) )
 
-        -- CLOCK
+        WindowResized width height ->
+            ( { model | screen = { width = toFloat width, height = toFloat height } }, Cmd.none )
+
         AnimationFramePassed delta ->
             ( { model
                 | elapsed = model.elapsed + delta
@@ -270,31 +270,24 @@ update msg model =
             in
             ( model, Cmd.batch ([ wallpaperCmd, walkerCmd ] ++ eyeCmd) )
 
-        -- ENVIRONMENT
-        PointerMoved point ->
-            ( { model | pointer = Just point }, Cmd.none )
+        -- RESULT (arrives because we ourselves issued a Cmd: Random.generate or Task.perform)
+        GameStarted play ->
+            ( { model | play = play }, Cmd.none )
 
-        FieldClicked point ->
-            ( model, Random.generate BlockPlaced (blockGenerator point) )
+        OthelloResponded ->
+            case model.play of
+                Discs othello ->
+                    let
+                        next =
+                            Othello.respond othello
+                    in
+                    ( { model | play = Discs next }, think next )
 
-        TouchEnded ->
-            let
-                pointerFade : Millis
-                pointerFade =
-                    350
-            in
-            ( model, Task.perform (\_ -> PointerLeft) (Process.sleep pointerFade) )
+                _ ->
+                    ( model, Cmd.none )
 
         PointerLeft ->
             ( { model | pointer = Nothing }, Cmd.none )
-
-        BlockPlaced block ->
-            let
-                blockLimit : Int
-                blockLimit =
-                    12
-            in
-            ( { model | blocks = List.take blockLimit (block :: model.blocks) }, Cmd.none )
 
         GotViewport viewport ->
             let
@@ -335,18 +328,22 @@ update msg model =
                 ]
             )
 
-        WindowResized width height ->
-            ( { model | screen = { width = toFloat width, height = toFloat height } }, Cmd.none )
+        BlockPlaced block ->
+            let
+                blockLimit : Int
+                blockLimit =
+                    12
+            in
+            ( { model | blocks = List.take blockLimit (block :: model.blocks) }, Cmd.none )
 
-        -- RANDOM
+        BlocksPlaced blocks ->
+            ( { model | blocks = List.filterMap identity blocks }, Cmd.none )
+
         PatternChosen pattern ->
             ( { model | wallpaper = Wallpaper.render model.screen pattern }, Cmd.none )
 
         BoidsPlaced boids ->
             ( { model | boids = boids }, Cmd.none )
-
-        BlocksPlaced blocks ->
-            ( { model | blocks = List.filterMap identity blocks }, Cmd.none )
 
         WalkersPlaced walkers ->
             ( { model | walkers = walkers }, Cmd.none )

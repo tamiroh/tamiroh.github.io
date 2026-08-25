@@ -1,4 +1,4 @@
-module Eye exposing (Eye, Look, generator, step, view)
+module Eye exposing (Eye, generator, step, view)
 
 import Field exposing (Field)
 import Geometry exposing (Position)

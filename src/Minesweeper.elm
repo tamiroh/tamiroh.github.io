@@ -3,8 +3,6 @@ module Minesweeper exposing
     , Game
     , faceOf
     , finished
-    , isReady
-    , new
     , reveal
     , start
     )
@@ -27,8 +25,7 @@ type Face
 
 
 type Status
-    = Ready
-    | Playing
+    = Playing
     | Lost
     | Won
 
@@ -49,11 +46,6 @@ mineCount =
 
 
 -- BUILD
-
-
-new : Game
-new =
-    Game { mines = Set.empty, door = ( 0, 0 ), revealed = Set.empty, status = Ready }
 
 
 start : Cell -> Random.Generator Game
@@ -135,17 +127,9 @@ spread mines cell revealed =
 -- QUERY
 
 
-isReady : Game -> Bool
-isReady (Game game) =
-    game.status == Ready
-
-
 finished : Game -> Bool
 finished (Game game) =
     case game.status of
-        Ready ->
-            False
-
         Playing ->
             False
 

@@ -1,4 +1,4 @@
-module Skull exposing (Look, view)
+module Skull exposing (view)
 
 import Geometry exposing (Position)
 import Svg exposing (Svg)

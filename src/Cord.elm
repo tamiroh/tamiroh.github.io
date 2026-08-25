@@ -1,4 +1,4 @@
-module Cord exposing (Look, Pull, step, view)
+module Cord exposing (Pull, step, view)
 
 import Cursor
 import Html exposing (Html)

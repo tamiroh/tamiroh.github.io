@@ -1,4 +1,4 @@
-module Walker exposing (Look, Walker, generator, speakAll, step, view)
+module Walker exposing (Walker, generator, speakAll, step, view)
 
 import Dice
 import Geometry exposing (Position)

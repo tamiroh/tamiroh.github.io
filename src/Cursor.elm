@@ -1,4 +1,4 @@
-module Cursor exposing (Look, Over(..), css)
+module Cursor exposing (Over(..), css)
 
 import Geometry exposing (Position)
 

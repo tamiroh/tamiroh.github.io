@@ -1,4 +1,4 @@
-module Board exposing (Content(..), Look, Mark(..), Scene, Shade(..), Shock, size, step, view)
+module Board exposing (Content(..), Mark(..), Shade(..), Shock, size, step, view)
 
 import Cursor
 import Dice

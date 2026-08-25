@@ -1,4 +1,4 @@
-module Bird exposing (Look, view)
+module Bird exposing (view)
 
 import Geometry exposing (Position)
 import Svg exposing (Svg)

@@ -1,4 +1,4 @@
-module Door exposing (Look, view)
+module Door exposing (view)
 
 import Geometry exposing (Position)
 import Svg exposing (Svg)

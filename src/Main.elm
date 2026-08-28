@@ -17,6 +17,7 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events
 import Json.Decode
+import Menu
 import Millis exposing (Millis)
 import Minesweeper
 import Othello
@@ -65,6 +66,7 @@ type alias Model =
     , walkers : List Walker
     , eyes : List Eye
     , blocks : List Field.Body
+    , menu : Maybe Menu.Menu
     }
 
 
@@ -82,6 +84,7 @@ init _ =
       , walkers = []
       , eyes = []
       , blocks = []
+      , menu = Nothing
       }
     , Task.perform GotViewport Browser.Dom.getViewport
     )
@@ -130,6 +133,9 @@ type Msg
     | WalkersPlaced (List Walker)
     | WalkersSpoke (List Walker)
     | EyeOpened (Maybe Eye)
+    | ContextMenuRequested Position
+    | MenuOpened Position (List String)
+    | MenuClosed
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -231,6 +237,12 @@ update msg model =
 
         WindowResized width height ->
             ( { model | screen = { width = toFloat width, height = toFloat height } }, Cmd.none )
+
+        ContextMenuRequested point ->
+            ( model, Random.generate (MenuOpened point) Menu.glyphsGenerator )
+
+        MenuClosed ->
+            ( { model | menu = Nothing }, Cmd.none )
 
         AnimationFramePassed delta ->
             ( { model
@@ -372,24 +384,49 @@ update msg model =
                 Just eye ->
                     ( { model | eyes = eye :: model.eyes }, Cmd.none )
 
+        MenuOpened point items ->
+            ( { model | menu = Just { position = point, items = items } }, Cmd.none )
+
 
 
 -- SUBSCRIPTIONS
 
 
 subscriptions : Model -> Sub Msg
-subscriptions _ =
+subscriptions model =
     let
         pointerDecoder : Json.Decode.Decoder Msg
         pointerDecoder =
             Json.Decode.map PointerMoved positionDecoder
+
+        escapeDecoder : Json.Decode.Decoder Msg
+        escapeDecoder =
+            Json.Decode.field "key" Json.Decode.string
+                |> Json.Decode.andThen
+                    (\key ->
+                        if key == "Escape" then
+                            Json.Decode.succeed MenuClosed
+
+                        else
+                            Json.Decode.fail "ignored"
+                    )
+
+        menuSub : List (Sub Msg)
+        menuSub =
+            if model.menu == Nothing then
+                []
+
+            else
+                [ Browser.Events.onKeyDown escapeDecoder ]
     in
     Sub.batch
-        [ Time.every 1000 (\_ -> SecondPassed)
-        , Browser.Events.onAnimationFrameDelta AnimationFramePassed
-        , Browser.Events.onResize WindowResized
-        , Browser.Events.onMouseMove pointerDecoder
-        ]
+        ([ Time.every 1000 (\_ -> SecondPassed)
+         , Browser.Events.onAnimationFrameDelta AnimationFramePassed
+         , Browser.Events.onResize WindowResized
+         , Browser.Events.onMouseMove pointerDecoder
+         ]
+            ++ menuSub
+        )
 
 
 
@@ -426,6 +463,7 @@ view model =
                         , "html:active,body:active{cursor:"
                         , Cursor.css cursorBulge (look model.theme) Cursor.Empty
                         , "}"
+                        , Menu.hoverStyle (look model.theme)
                         ]
                     )
                 ]
@@ -433,11 +471,16 @@ view model =
         touchDecoder : Json.Decode.Decoder Msg
         touchDecoder =
             Json.Decode.map PointerMoved (Json.Decode.field "touches" (Json.Decode.field "0" positionDecoder))
+
+        contextMenuDecoder : Json.Decode.Decoder ( Msg, Bool )
+        contextMenuDecoder =
+            Json.Decode.map (\point -> ( ContextMenuRequested point, True )) positionDecoder
     in
     Html.div
         [ Html.Events.on "touchmove" touchDecoder
         , Html.Events.on "touchend" (Json.Decode.succeed TouchEnded)
         , Html.Events.on "touchcancel" (Json.Decode.succeed TouchEnded)
+        , Html.Events.preventDefaultOn "contextmenu" contextMenuDecoder
         ]
         [ pageStyle
         , backgroundLayer model.theme
@@ -456,7 +499,23 @@ view model =
             ]
             [ boardLayer model ]
         , Cord.view (look model.theme) CordPulled model.cord
+        , menuLayer model.theme model.screen model.menu
         ]
+
+
+menuLayer : Theme -> Screen -> Maybe Menu.Menu -> Html Msg
+menuLayer theme screen menu =
+    case menu of
+        Nothing ->
+            Html.text ""
+
+        Just opened ->
+            Html.div
+                [ Attr.style "position" "fixed"
+                , Attr.style "inset" "0"
+                , Html.Events.onClick MenuClosed
+                ]
+                [ Menu.view (look theme) screen opened ]
 
 
 backgroundLayer : Theme -> Html Msg

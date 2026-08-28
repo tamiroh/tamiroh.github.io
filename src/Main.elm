@@ -136,6 +136,7 @@ type Msg
     | ContextMenuRequested Position
     | MenuOpened Position (List String)
     | MenuClosed
+    | MenuItemChosen
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -239,10 +240,17 @@ update msg model =
             ( { model | screen = { width = toFloat width, height = toFloat height } }, Cmd.none )
 
         ContextMenuRequested point ->
-            ( model, Random.generate (MenuOpened point) Menu.glyphsGenerator )
+            if model.theme == Rainbow then
+                ( model, Cmd.none )
+
+            else
+                ( model, Random.generate (MenuOpened point) Menu.glyphsGenerator )
 
         MenuClosed ->
             ( { model | menu = Nothing }, Cmd.none )
+
+        MenuItemChosen ->
+            ( { model | theme = Rainbow, menu = Nothing }, Cmd.none )
 
         AnimationFramePassed delta ->
             ( { model
@@ -445,6 +453,9 @@ view model =
                 Dark ->
                     { ink = "#242424" }
 
+                Rainbow ->
+                    { ink = "#ffffff" }
+
         cursorBulge : Float
         cursorBulge =
             1.2
@@ -458,12 +469,12 @@ view model =
                         [ "html,body{margin:0;overflow:hidden;overscroll-behavior:none"
                         , ";user-select:none;-webkit-user-select:none"
                         , ";cursor:"
-                        , Cursor.css 1 (look model.theme) Cursor.Empty
+                        , Cursor.css 1 (look model.theme model.elapsed) Cursor.Empty
                         , "}"
                         , "html:active,body:active{cursor:"
-                        , Cursor.css cursorBulge (look model.theme) Cursor.Empty
+                        , Cursor.css cursorBulge (look model.theme model.elapsed) Cursor.Empty
                         , "}"
-                        , Menu.hoverStyle (look model.theme)
+                        , Menu.hoverStyle (look model.theme model.elapsed)
                         ]
                     )
                 ]
@@ -483,12 +494,12 @@ view model =
         , Html.Events.preventDefaultOn "contextmenu" contextMenuDecoder
         ]
         [ pageStyle
-        , backgroundLayer model.theme
+        , backgroundLayer model.theme model.elapsed
         , Wallpaper.view wallpaperLook model.wallpaper
         , eyeLayer model.theme model.screen model.elapsed model.eyes
         , blockLayer model.theme model.screen model.elapsed model.blocks
-        , boidLayer model.theme model.screen model.boids
-        , Ground.view (look model.theme) model.elapsed model.screen model.walkers
+        , boidLayer model.theme model.screen model.elapsed model.boids
+        , Ground.view (look model.theme model.elapsed) model.elapsed model.screen model.walkers
         , Html.div
             [ Attr.style "position" "fixed"
             , Attr.style "inset" "0"
@@ -498,13 +509,13 @@ view model =
             , Attr.style "pointer-events" "none"
             ]
             [ boardLayer model ]
-        , Cord.view (look model.theme) CordPulled model.cord
-        , menuLayer model.theme model.screen model.menu
+        , Cord.view (look model.theme model.elapsed) CordPulled model.cord
+        , menuLayer model.theme model.screen model.elapsed model.menu
         ]
 
 
-menuLayer : Theme -> Screen -> Maybe Menu.Menu -> Html Msg
-menuLayer theme screen menu =
+menuLayer : Theme -> Screen -> Millis -> Maybe Menu.Menu -> Html Msg
+menuLayer theme screen elapsed menu =
     case menu of
         Nothing ->
             Html.text ""
@@ -515,15 +526,15 @@ menuLayer theme screen menu =
                 , Attr.style "inset" "0"
                 , Html.Events.onClick MenuClosed
                 ]
-                [ Menu.view (look theme) screen opened ]
+                [ Menu.view (look theme elapsed) screen MenuItemChosen opened ]
 
 
-backgroundLayer : Theme -> Html Msg
-backgroundLayer theme =
+backgroundLayer : Theme -> Millis -> Html Msg
+backgroundLayer theme elapsed =
     Html.div
         [ Attr.style "position" "fixed"
         , Attr.style "inset" "0"
-        , Attr.style "background-color" (paper theme)
+        , Attr.style "background-color" (paper theme elapsed)
         , Html.Events.on "click" (Json.Decode.map FieldClicked positionDecoder)
         ]
         []
@@ -538,7 +549,7 @@ eyeLayer theme screen now eyes =
         , Attr.style "inset" "0"
         , Attr.style "pointer-events" "none"
         ]
-        (List.filterMap (Eye.view (look theme) now) eyes)
+        (List.filterMap (Eye.view (look theme now) now) eyes)
 
 
 blockLayer : Theme -> Screen -> Millis -> List Field.Body -> Html msg
@@ -621,7 +632,7 @@ blockLayer theme screen now blocks =
         blockView block =
             Svg.path
                 [ SvgAttr.d (rounded (Field.outline block.shape))
-                , SvgAttr.fill (paper theme)
+                , SvgAttr.fill (paper theme now)
                 , SvgAttr.stroke (ink theme)
                 , SvgAttr.strokeWidth (String.fromFloat lineWidth)
                 , SvgAttr.strokeLinejoin "round"
@@ -639,8 +650,8 @@ blockLayer theme screen now blocks =
         (List.map blockView blocks)
 
 
-boidLayer : Theme -> Screen -> List Boid -> Html msg
-boidLayer theme screen boids =
+boidLayer : Theme -> Screen -> Millis -> List Boid -> Html msg
+boidLayer theme screen now boids =
     let
         torus =
             Torus.around screen
@@ -652,7 +663,7 @@ boidLayer theme screen boids =
                     atan2 boid.vy boid.vx * 180 / pi
             in
             List.map
-                (\( x, y ) -> Bird.view (look theme) { x = x, y = y, heading = heading })
+                (\( x, y ) -> Bird.view (look theme now) { x = x, y = y, heading = heading })
                 (Boid.places torus boid)
     in
     Svg.svg
@@ -730,7 +741,7 @@ boardLayer model =
         ]
         [ Svg.map CellClicked
             (Board.view
-                { look = look model.theme
+                { look = look model.theme model.elapsed
                 , screen = model.screen
                 , pointer = model.pointer
                 , shock = model.shock
@@ -749,6 +760,7 @@ boardLayer model =
 type Theme
     = Light
     | Dark
+    | Rainbow
 
 
 toggle : Theme -> Theme
@@ -760,15 +772,28 @@ toggle theme =
         Dark ->
             Light
 
+        Rainbow ->
+            Light
+
 
 lineWidth : Float
 lineWidth =
     2
 
 
-look : Theme -> { ink : String, paper : String, stroke : Float }
-look theme =
-    { ink = ink theme, paper = paper theme, stroke = lineWidth }
+look : Theme -> Millis -> { ink : String, paper : String, stroke : Float }
+look theme elapsed =
+    { ink = ink theme, paper = paper theme elapsed, stroke = lineWidth }
+
+
+rainbowCycle : Millis
+rainbowCycle =
+    4000
+
+
+rainbowHue : Millis -> Float
+rainbowHue elapsed =
+    360 * (elapsed / rainbowCycle - toFloat (floor (elapsed / rainbowCycle)))
 
 
 ink : Theme -> String
@@ -780,15 +805,21 @@ ink theme =
         Dark ->
             "#545454"
 
+        Rainbow ->
+            "#ffffff"
 
-paper : Theme -> String
-paper theme =
+
+paper : Theme -> Millis -> String
+paper theme elapsed =
     case theme of
         Light ->
             "#ffffff"
 
         Dark ->
             "#000000"
+
+        Rainbow ->
+            "hsl(" ++ String.fromFloat (rainbowHue elapsed) ++ ", 75%, 55%)"
 
 
 

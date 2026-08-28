@@ -3,6 +3,7 @@ module Menu exposing (Menu, glyphsGenerator, hoverStyle, view)
 import Geometry exposing (Position)
 import Html exposing (Html)
 import Html.Attributes as Attr
+import Html.Events
 import Random
 import Screen exposing (Screen)
 
@@ -48,8 +49,8 @@ itemHeight =
     28
 
 
-view : Look -> Screen -> Menu -> Html msg
-view look screen menu =
+view : Look -> Screen -> msg -> Menu -> Html msg
+view look screen chosen menu =
     let
         height : Float
         height =
@@ -76,6 +77,7 @@ view look screen menu =
                 , Attr.style "padding" "0 12px"
                 , Attr.style "white-space" "nowrap"
                 , Attr.style "overflow" "hidden"
+                , Html.Events.onClick chosen
                 ]
                 [ Html.text label ]
     in

@@ -349,6 +349,9 @@ pace speed torus level walked pointer =
 
                 dread =
                     panic * max 0 ((panicRange / max panicFloor span) ^ 2 - 1)
+
+                overhead =
+                    max 0 above / max panicFloor span
             in
             min (speed * limit)
                 (max 0
@@ -357,7 +360,7 @@ pace speed torus level walked pointer =
                     )
                     + speed
                     * dread
-                    * max 0 lean
+                    * max lean overhead
                 )
 
 

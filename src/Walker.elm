@@ -2,6 +2,7 @@ module Walker exposing (Game(..), Walker, generator, step, trySpeakAll, view)
 
 import Dice
 import Geometry exposing (Position)
+import Html.Attributes as Attr
 import Millis exposing (Millis)
 import Piece
 import Random
@@ -42,6 +43,7 @@ type alias Bubble =
 type Content
     = Pips Int
     | Piece Bool
+    | PtLink
 
 
 type Game
@@ -124,15 +126,20 @@ pieceGenerator =
 
 contentGenerator : Game -> Random.Generator Content
 contentGenerator game =
-    case game of
-        Othello ->
-            pieceGenerator
+    let
+        usual =
+            case game of
+                Othello ->
+                    pieceGenerator
 
-        NoGame ->
-            pipsGenerator
+                NoGame ->
+                    pipsGenerator
 
-        Minesweeper ->
-            pipsGenerator
+                Minesweeper ->
+                    pipsGenerator
+    in
+    Random.weighted ( 1, Random.constant PtLink ) [ ( 9, usual ) ]
+        |> Random.andThen identity
 
 
 trySpeak : Game -> Millis -> Walker -> Random.Generator Walker
@@ -252,12 +259,27 @@ speechBubble look opacity x ground content =
 
 contentView : Look -> Content -> List (Svg msg)
 contentView look content =
+    let
+        stone dark =
+            Piece.view pieceRadius ( 0, negate (bubbleSize / 2) ) look.ink look.paper dark
+    in
     case content of
         Pips count ->
             Dice.view bubbleSize ( negate (bubbleSize / 2), negate bubbleSize ) look.ink count
 
         Piece dark ->
-            [ Piece.view pieceRadius ( 0, negate (bubbleSize / 2) ) look.ink look.paper dark ]
+            [ stone dark ]
+
+        PtLink ->
+            [ Svg.a
+                [ Attr.attribute "href" "https://github.com/tamiroh/pt"
+                , SvgAttr.target "_blank"
+                , Attr.attribute "rel" "noopener noreferrer"
+                , Attr.attribute "aria-label" "tamiroh/pt on GitHub"
+                , SvgAttr.pointerEvents "visiblePainted"
+                ]
+                [ stone True ]
+            ]
 
 
 pieceRadius : Float
